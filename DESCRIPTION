@@ -1,5 +1,5 @@
 Package: covFactorModel
-Title: Covariance matrix estimation via factor models
+Title: Covariance Matrix Estimation via Factor Models
 Version: 0.1.0
 Description: Estimation of covariance matrix via factor models with application
     to financial data. Factor models decompose the asset returns into an 
