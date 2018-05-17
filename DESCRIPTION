@@ -1,0 +1,40 @@
+Package: covFactorModel
+Title: Covariance matrix estimation via factor models
+Version: 0.1.0
+Description: Estimation of covariance matrix via factor models with application
+    to financial data. Factor models decompose the asset returns into an 
+    exposure term to some factors and a residual idiosyncratic component. The 
+    resulting covariance matrix contains a low-rank term corresponding to the 
+    factors and another full-rank term corresponding to the residual component. 
+    This package provides a function to separate the data into the factor 
+    component and residual component, as well as to estimate the corresponding 
+    covariance matrix. Different kind of factor models are considered, namely, 
+    macroeconomic factor models and statistical factor models. The estimation
+    of the covariance matrix accepts different kinds of structure on the 
+    residual term: diagonal structure (implying that residual component is 
+    uncorrelated) and block diagonal structure (allowing correlation within 
+    sectors). The package includes a built-in database containing stock symbols
+    and their sectors.
+Authors@R: c(
+  person("Rui", "ZHOU", role =  "aut", email = "rzhouae@connect.ust.hk"),
+  person(c("Daniel", "P."), "Palomar", role = c("cre", "aut"), email = "daniel.p.palomar@gmail.com")
+  )
+Maintainer: Daniel P. Palomar <daniel.p.palomar@gmail.com>
+URL: https://github.com/dppalomar/covFactorModel
+BugReports: https://github.com/dppalomar/covFactorModel/issues
+Depends: R (>= 3.4.0)
+License: GPL-3 | file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports: xts
+RoxygenNote: 6.0.1
+Suggests:
+    MASS,
+    knitr,
+    rmarkdown,
+    testthat
+VignetteBuilder: 
+    knitr,
+    bookdown,
+    prettydoc
+

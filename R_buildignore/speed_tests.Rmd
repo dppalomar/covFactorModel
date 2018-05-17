@@ -1,0 +1,136 @@
+# Compare speed of calculating residual
+```{r, message = FALSE, warning = FALSE}
+library(microbenchmark)
+library(MASS)
+library(xts)
+library(covFactorModel)
+
+# define functions
+residual_replicate <- function(X, f, B, alpha, T) {
+  return(X - f %*% t(B) - t(replicate(T, alpha)))
+}
+
+residual_rep <- function(X, f, B, alpha, T) {
+  return(X - f %*% t(B) - rep(alpha, each = T))
+}
+
+residual_rep_bis <- function(X, f, B, alpha, T) {
+  return(t(t(X - f %*% t(B)) - alpha))
+}
+
+residual_matrix <- function(X, f, B, alpha, T, N) {
+  return(X - f %*% t(B) - matrix(alpha, T, N, byrow = TRUE))
+}
+
+
+# generate data
+N <- 10 # number of stocks
+T <- 100 # number of samples
+X <- xts(mvrnorm(T, rep(0,N), diag(N)/1000), order.by = as.Date('2017-04-15') + 1:T) 
+
+fm <- factorModel(X, K = 3)
+
+res <- microbenchmark(residual_rep(X, fm$factors, fm$beta, fm$alpha, T),
+                      residual_rep_bis(X, fm$factors, fm$beta, fm$alpha, T),
+                      residual_matrix(X, fm$factors, fm$beta, fm$alpha, T, N),
+                      residual_replicate(X, fm$factors, fm$beta, fm$alpha, T),
+                      times = 100)
+
+boxplot(res, names = c("rep()", "rep_bis()", "matrix()", "replicate"))
+
+# check if the result is equal
+y_replicate <- residual_replicate(X, fm$factors, fm$beta, fm$alpha, T)
+y_rep       <- residual_rep(X, fm$factors, fm$beta, fm$alpha, T)
+y_rep_bis   <- residual_rep_bis(X, fm$factors, fm$beta, fm$alpha, T)
+y_matrix    <- residual_matrix(X, fm$factors, fm$beta, fm$alpha, T, N)
+norm(y_replicate - y_rep, "F")
+norm(y_replicate - y_rep_bis, "F")
+norm(y_rep - y_matrix, "F")
+```
+
+# Compare speed of calculating X_demean and mean
+```{r}
+# define function
+demean_scale <- function(X) {
+  X_demeaned <- scale(X, scale = FALSE)
+  alpha <- attributes(X_demeaned)$`scaled:center`
+  return(list(X_demeaned, alpha))
+}
+
+demean_rep <- function(X) {
+  alpha <- colMeans(X)
+  X_demeaned <- X - rep(alpha, each = T)
+  return(list(X_demeaned, alpha))
+}
+
+demean_matrix <- function(X) {
+  alpha <- colMeans(X)
+  X_demeaned <- X - matrix(alpha, T, ncol(X), byrow = TRUE)
+  return(list(X_demeaned, alpha))
+}
+
+demean_vector <- function(X) {
+  alpha <- colMeans(X)
+  X_demeaned <- t(t(X) - alpha)
+  return(list(X_demeaned, alpha))
+}
+
+# generate data
+N <- 10 # number of stocks
+T <- 100 # number of samples
+X <- xts(mvrnorm(T, rep(0,N), diag(N)/1000), order.by = as.Date('2017-04-15') + 1:T) 
+
+res <- microbenchmark(demean_scale(X), demean_rep(X), demean_matrix(X), demean_vector(X), times = 100)
+boxplot(res, names = c("scale()", "colMeans() + rep()", "colMeans() + matrix()", "colMeans() + tt_vector_operation"))
+
+# check if result is equal
+y_scale <- demean_scale(X)
+y_rep <- demean_rep(X)
+y_matrix <- demean_matrix(X)
+y_vector <- demean_vector(X)
+norm(y_scale[[1]] - y_rep[[1]], "F")
+norm(y_scale[[2]] - y_rep[[2]], "2")
+norm(y_scale[[1]] - y_matrix[[1]], "F")
+norm(y_scale[[2]] - y_matrix[[2]], "2")
+norm(y_scale[[1]] - y_vector[[1]], "F")
+norm(y_scale[[2]] - y_vector[[2]], "2")
+```
+
+# Compare of matrix multiplication
+see [reference](https://stackoverflow.com/questions/17080099/fastest-way-to-multiply-matrix-columns-with-vector-elements-in-r) alse
+```{r}
+# generate data
+N <- 100 # number of stocks
+T <- N*3 # number of samples
+X <- xts(mvrnorm(T, rep(0,N), diag(N)/1000), order.by = as.Date('2017-04-15') + 1:T) 
+
+eig_decomp <- eigen(cov(X))
+K <- 2
+U <- eig_decomp$vectors[, 1:K]
+e <- eig_decomp$values[1:K]
+
+get_beta_normal <- function(U, e) {
+  beta <- U %*% diag(sqrt(e))
+  return(beta %*% t(beta))
+}
+
+get_beta_crossprod <- function(U, e) {
+  return(tcrossprod(U %*% diag(sqrt(e))))
+}
+
+get_beta_matrix_crossprod <- function(U, e) {
+  return(tcrossprod(U * matrix(sqrt(e), nrow(U), ncol(U), byrow = TRUE)))
+}
+res <- microbenchmark(get_beta_normal(U, e),
+                      get_beta_crossprod(U,e),
+                      get_beta_matrix_crossprod(U, e),
+                      times = 100)
+boxplot(res, names = c("normal", "crosspord()", "crossprod() + matrix()"))
+
+# check if result is equal
+y_normal <- get_beta_normal(U, e)
+y_crossprod <- get_beta_crossprod(U, e)
+y_rep_crossprod <- get_beta_matrix_crossprod(U, e)
+norm(y_normal - y_crossprod, "F")
+norm(y_crossprod - y_rep_crossprod, "F")
+```

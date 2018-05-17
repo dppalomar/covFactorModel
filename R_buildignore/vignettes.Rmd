@@ -1,0 +1,56 @@
+---
+title: "vignettes"
+author: "ZHOU Rui"
+date: "April 28, 2018"
+output: html_document
+---
+
+# Explanation of the method
+
+The factor model decompose the stock returns into two parts: low-dimensional factors and idiosyncratic residual noise. There are three basic type of factor models [@tsay2005analysis], namely, macroeconomic, fundamental and statistical. Assuming there are $N$ stocks in market and we have $T$ observation, then all three type of factor models can be expressed using linear form:
+$$x_{i,t} = \alpha_{i} + \beta_{1,i}f_{1,t} + \dots + \beta_{K,i}f_{K,t} + \epsilon_{i,t}, \; t = 1, \dots, T$$
+where $K$ is the number of factors, $\alpha_{i}$ is intercept of stock $i$, $\mathbf{f}_{k} = [f_{k,1}, \dots, f_{k,T}]^{T}$ is common factors $k$, $\boldsymbol{\beta}_{i} = [\beta_{1,i}, \dots, \beta_{K,i}]^{T}$ is factor loading of stock $i$ and $\epsilon_{i,t}$ is residual term for stock $i$ at time $t$. With compact combination $\mathbf{F}=\left[\begin{array}{ccc} \mathbf{f}_{1} & \cdots & \mathbf{f}_{K}\end{array}\right]$ and $\mathbf{x}_{i} = [x_{i,1}, \dots, x_{i,T}]$, it can also be written into vector form:
+$$\mathbf{x}_{i} = \mathbf{1}_{T} + \mathbf{F} \boldsymbol{\beta}_{i} + \boldsymbol{\epsilon}_{i}, \; i=1,\dots,N$$
+
+## `factorModel()`: Build factor model for given data
+
+The goal of `factorModel()` is the decomposition of a $T\times N$ data matrix $\mathbf{X}$ into factors and residual idiosyncratic component. User can choose different types of factor models, namely, macroeconomic, BARRA (a special case of fundamental factor model), or statistical.
+
+### Macroeconomic factor model
+In this model, the factors $\{\mathbf{f}_{t}\}$ are observed economic/financial time series out of given $\mathbf{X}$. The macroeconomic factor model can be estimated through Least-Squares (LS) regression:
+$$\underset{\boldsymbol{\gamma}_{i}}{\mathsf{minimize}}\quad\Vert\mathbf{x}_{i}-\tilde{\mathbf{F}}\boldsymbol{\gamma}_{i}\Vert^{2}$$
+where $\tilde{\mathbf{F}}=\left[\begin{array}{cc} \mathbf{1}_{T} & \mathbf{F}\end{array}\right]$ and $\boldsymbol{\gamma}_{i}=\left[\begin{array}{c} \alpha_{i}\\ \boldsymbol{\beta}_{i} \end{array}\right]$. The closed-form solution is: $\hat{\boldsymbol{\gamma}}_{i}=\left(\tilde{\mathbf{F}}^{T}\tilde{\mathbf{F}}\right)^{-1}\tilde{\mathbf{F}}^{T}\mathbf{x}_{i}$. Then simply use fator model to get $[\hat{\epsilon}_{i,1},\dots,\hat{\epsilon}_{i,T}]^T=\mathbf{x}_{i}-\tilde{\mathbf{F}}\hat{\boldsymbol{\gamma}}_{i}$.
+
+### BARRA Industry factor model
+Normally, fundamental factor model use observable asset specific characteristics (fundamentals) like industry classification, market capitalization, style classification (value, growth), etc. to determine the common risk factors $\mathbf{F}$. In this function, we only consider one of the cases: BARRA Industry factor model, which assumes that there are $K$ factors corresponding to $K$ mutually exclusive industries (aka, sectors). Apart from that, the loadings $\beta_{i,k}$ is directly defined as:
+$$\beta_{i,k}=\begin{cases}
+1 & \textrm{if stock } i \textrm{ is in industry } k\\
+0 & \textrm{otherwise.}
+\end{cases}$$
+Using compact combination $\mathbf{B}=\left[\begin{array}{ccc} \boldsymbol{\beta}_{1} & \cdots & \boldsymbol{\beta}_{N}\end{array}\right]^{T}$, the industry factor model is (note that $\boldsymbol{\alpha} = \mathbf{0}$):
+$$\mathbf{x}_{t} =  \mathbf{B} \mathbf{f}_{t} + \boldsymbol{\epsilon}_{t}, \; t=1,\dots,T$$
+where $\mathbf{x}_{t} = [x_{1,t},\dots,x_{N,t}]^T$ and $\mathbf{f}_{t} = [f_{1,t},\dots,f_{K,t}]^T$. Here the LS regression can also be applied as:
+$$\underset{\mathbf{f}_{t}}{\mathsf{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Vert\mathbf{x}_{t}-\mathbf{B}\mathbf{f}_{t}\Vert_{2}^{2}$$
+The solution is $\hat{\mathbf{f}}_{t}=(\mathbf{B}^{T}\mathbf{B})^{-1}\mathbf{B}^{T}\mathbf{x}_{t}, \; t=1,\dots,T$ and the residual can be simply calculated as $[\hat{\epsilon}_{1,t},\dots,\hat{\epsilon}_{N,t}]^{T}=\mathbf{x}_{t}-\mathbf{B}\hat{\mathbf{f}}_{t}$.
+
+### Statistical factor model
+ The statistical factor model holds the assumption that $\mathbf{f}_{t}$ is affine transformations of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. We use iterative method [see slides_factor_model for details] to estimate parameters:
+
+> 1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and its eigen-decomposition $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$, set index $s=1$
+2. Estimate $\hat{\mathbf{B}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s)} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}_{(s)}$, $\hat{\boldsymbol{\Psi}}_{(s)} = \textrm{struct}(\hat{\boldsymbol{\Sigma}} - \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)})$, and $\hat{\boldsymbol{\Sigma}}_{(s)} = \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)} + \hat{\boldsymbol{\Psi}}_{(s)}$
+3. Update the eigen-decomposition as $\hat{\boldsymbol{\Sigma}} - \hat{\boldsymbol{\Psi}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s+1)} \hat{\boldsymbol{\Lambda}}_{(s+1)} \hat{\boldsymbol{\Gamma}}^{T}_{(s+1)}$ and $s \gets s+1$
+4. Repeat Steps 2-3 until $(\hat{\mathbf{B}}_{(s)}, \hat{\boldsymbol{\Psi}}_{(s)}, \hat{\boldsymbol{\Sigma}}_{(s)})$ until convergence.
+
+where $\textrm{struct}()$ is to impose certain structure on $\hat{\boldsymbol{\Psi}}_{(s)}$, one typical option is diagonal. After the algorithm is done, we can calculate $\hat{\mathbf{\alpha}} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{x}_{t}$ and build statistical factor model use algorithm output:
+$$ \hat{\mathbf{B}} = \hat{\boldsymbol{\Gamma}} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}, \quad \hat{\mathbf{f}}_{t} = \hat{\boldsymbol{\Lambda}}^{-\frac{1}{2}} \hat{\boldsymbol{\Gamma}}^{T} (\mathbf{x}_{t} - \hat{\mathbf{\alpha}}), \quad \hat{\mathbf{\epsilon}}_{t} = \mathbf{x}_{t} - \hat{\mathbf{\alpha}} - \hat{\mathbf{B}} \hat{\mathbf{f}}_{t}$$
+
+## `covFactorModel()`: Covariance matrix estimation through factor model
+The function `covFactorModel()` estimate a covariance matrix based on factor model decomposition. As mentioned above, the factor model can be expressed as:
+$$\mathbf{x}_{t} = \boldsymbol{\alpha} + \mathbf{B} \mathbf{f}_{t} + \boldsymbol{\epsilon}_{t},  \; t = 1, \dots, T$$
+Usually, we will assume $\{\mathbf{f}_{t}\}$ and $\{\boldsymbol{\epsilon}_{t}\}$ are uncorrelated. Then the covariance matrix $\boldsymbol{\Sigma}$ can be represented as:
+$$\boldsymbol{\Sigma} = \mathbf{B} \boldsymbol{\Sigma}_{\mathbf{f}} \mathbf{B}^{T} + \boldsymbol{\Psi}$$
+where $\boldsymbol{\Sigma}_{\mathbf{f}} = \mathsf{Cov}[\mathbf{x}_{t}]$ and $\boldsymbol{\Psi} = \mathsf{Cov}[\boldsymbol{\epsilon}_{t}]$. We can simply use result from function `factorModel()` to estimate covariance matrix $\boldsymbol{\Sigma}$ as:
+$$\hat{\boldsymbol{\Sigma}} = \hat{\mathbf{B}} \hat{\boldsymbol{\Sigma}}_{\mathbf{f}} \hat{\mathbf{B}}^{T} + \hat{\boldsymbol{\Psi}}$$
+where $\hat{\boldsymbol{\Sigma}}_{\mathbf{f}}$ and $\hat{\boldsymbol{\Psi}}$ are the sample covariance matrix of $\{\mathbf{\mathbf{f}}_{t}\}$ and $\{\boldsymbol{\epsilon}_{t}\}$. Besides,  the $\boldsymbol{\Psi}$ is expected to follow a special structure, i.e.,
+$$\hat{\boldsymbol{\Sigma}} = \hat{\mathbf{B}} \hat{\boldsymbol{\Sigma}}_{\mathbf{f}} \hat{\mathbf{B}}^{T} + \textrm{struct}\{ \hat{\boldsymbol{\Psi}} \}$$
+In statistical factor model, the $\hat{\boldsymbol{\Sigma}}$ is actually available when build that model. Therefore the algorithm output $\hat{\boldsymbol{\Sigma}}_{(s)}$ will be directly extracted as covariance matrix estimation.
