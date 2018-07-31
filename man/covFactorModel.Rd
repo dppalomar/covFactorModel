@@ -16,7 +16,8 @@ covFactorModel(X, type = "S", econ_fact = NA, K = 1,
 \itemize{\item \code{"M"} - macroeconomic factor model, requires user to pass \code{econ_fact}
          \item \code{"B"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
           or colnames of \code{X} to be contained in the in-built database \code{data(stock_sector_database)}
-         \item \code{"S"} - statistical factor model, requires user to pass number of factors \code{K} (default)}}
+         \item \code{"S"} - statistical factor model, requires user to pass number of factors \code{K} (default)
+         \item \code{"ML"} - Maximum likelihood estimation under factor model structure }}
 
 \item{econ_fact}{xts object of dimension \eqn{T x K}, required and used when \code{type = "M"}}
 
