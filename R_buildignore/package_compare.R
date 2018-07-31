@@ -45,7 +45,7 @@ library(MASS)
 
 # generate synthetic data
 set.seed(234)
-K <- 1   # number of factors
+K <- 2   # number of factors
 N <- 100  # number of stocks
 mu <- rep(0, N)
 beta <- mvrnorm(N, rep(1,K), diag(K)/10)
@@ -55,15 +55,18 @@ Sigma_cor <- cov2cor(Sigma)
 # estimate error by loop
 err_scm_vs_T <- c()
 err_stat_diag_vs_T <- c()
+err_ML_vs_T <- c()
 err_factanal_vs_T <- c()
 scm_time_vs_T <- c()
 stat_diag_time_vs_T <- c()
+ML_time_vs_T <- c()
 factanal_time_vs_T <- c()
 index_T <- N*(2:8)
 max_loop <- 500
 for (T in index_T) {
-  err_scm <- err_stat_diag <- err_factanal <- 0
-  scm_time <- stat_diag_time <- factanal_time <- 0
+  print(T)
+  err_scm <- err_stat_diag <- err_ML <- err_factanal <- 0
+  scm_time <- stat_diag_time <- ML_time <- factanal_time <- 0
   for (i in 1:max_loop) {
     X <- xts(mvrnorm(T, mu, Sigma), order.by = as.Date('1995-03-15') + 1:T)
     # use factanal
@@ -81,6 +84,13 @@ for (T in index_T) {
     stat_diag_time <- stat_diag_time + as.numeric(t2 - t1)
     err_stat_diag <- err_stat_diag + norm(Sigma_cor - cor_stat_diag, "F")^2
     
+    # use ML method
+    t1 <- Sys.time()
+    cor_ML <- cov2cor(covFactorModel(X, K = K, type = "ML"))
+    t2 <- Sys.time()
+    ML_time <- ML_time + as.numeric(t2 - t1)
+    err_ML <- err_ML + norm(Sigma_cor - cor_ML, "F")^2
+    
     # use sample covariance matrix
     t1 <- Sys.time()
     cor_scm <- cor(X)
@@ -90,17 +100,22 @@ for (T in index_T) {
   }
   factanal_time_vs_T <- c(factanal_time_vs_T, factanal_time/max_loop)
   err_factanal_vs_T <- c(err_factanal_vs_T, err_factanal/max_loop)
+  
   stat_diag_time_vs_T <- c(stat_diag_time_vs_T, stat_diag_time/max_loop)
   err_stat_diag_vs_T <- c(err_stat_diag_vs_T, err_stat_diag/max_loop)
+  
+  ML_time_vs_T <- c(ML_time_vs_T, ML_time/max_loop)
+  err_ML_vs_T <- c(err_ML_vs_T, err_ML/max_loop)
+  
   scm_time_vs_T <- c(scm_time_vs_T, scm_time/max_loop)
   err_scm_vs_T <- c(err_scm_vs_T, err_scm/max_loop)
 }
-res <- cbind(err_factanal_vs_T, err_stat_diag_vs_T, err_scm_vs_T)
-PRIAL <- 100*(1 - apply(res, 2, "/", res[, 3]))
-time <- cbind(factanal_time_vs_T, stat_diag_time_vs_T, scm_time_vs_T)
-colnames(res) <- c("factanal()", "covFactorModel()", "SCM")
-rownames(res) <- paste0("T/N=", index_T/N)
-colnames(time) <- c("factanal()", "covFactorModel()", "SCM")
+res <- cbind(err_ML_vs_T, err_factanal_vs_T, err_stat_diag_vs_T, err_scm_vs_T)
+PRIAL <- 100*(1 - apply(res, 2, "/", res[, 4]))
+time <- cbind(ML_time_vs_T, factanal_time_vs_T, stat_diag_time_vs_T, scm_time_vs_T)
+colnames(PRIAL) <- c("covFactorModel() ML" ,"factanal()", "covFactorModel() stat", "SCM")
+rownames(PRIAL) <- paste0("T/N=", index_T/N)
+colnames(time) <- c("covFactorModel() ML" ,"factanal()", "covFactorModel() stat", "SCM")
 rownames(time) <- paste0("T/N=", index_T/N)
 print(res)
 print(time)

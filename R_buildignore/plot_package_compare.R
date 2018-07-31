@@ -1,8 +1,9 @@
 png(file="package_compare.png",width = 10000,height = 4000,res = 1000)
 par(mfcol = c(1, 2))
-colors <- c("blue", "green4", "darkmagenta", "red3")
 
 load("data/compare_covFactorModel_factanal.RData")
+colors <- c("blue", "green4", "darkmagenta", "red3")
+
 matplot(index_T/N, PRIAL,
         xlab = "T/N", ylab = "PRIAL",
         main = "",
