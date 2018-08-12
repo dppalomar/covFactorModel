@@ -61,7 +61,7 @@ For more detailed information, please check the vignette: [GitHub-html-vignette]
 
 
 ## Usage of `factorModel()`
-The function `factorModel()` builds a factor model for the data, i.e., it decomposes the asset returns into a factor component and a residual component. The user can choose different types of factor models, namely, macroeconomic, BARRA, or statistical. We start by preparing some raw data:
+The function `factorModel()` builds a factor model for the data, i.e., it decomposes the asset returns into a factor component and a residual component. The user can choose different types of factor models, namely, macroeconomic, BARRA, or statistical. We start by generating some synthetic data:
 ```{r, message = FALSE, warning = FALSE}
 library(covFactorModel)
 library(xts)
@@ -116,8 +116,8 @@ norm(X - X_, "F")
 ```
 
 ## Usage of `covFactorModel()`
-The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix, namely, diagonal and block diagonal by sectors.
-We start by preparing some raw data:
+The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix (i.e., scaled identity, diagonal, block diagonal, and full).
+We start by preparing some synthetic data:
 ```{r}
 library(covFactorModel)
 library(xts)
@@ -128,7 +128,7 @@ set.seed(234)
 K <- 1   # number of factors
 N <- 400  # number of stocks
 mu <- rep(0, N)
-beta <- mvrnorm(N, rep(1,K), diag(K)/10)
+beta <- mvrnorm(N, rep(1, K), diag(K)/10)
 Sigma <- beta %*% t(beta) + diag(N)
 print(eigen(Sigma)$values[1:10])
 ```
@@ -136,10 +136,8 @@ print(eigen(Sigma)$values[1:10])
 Then, we simply use function `covFactorModel()` (by default it uses a _statistical factor model_ and a diagonal structure for the residual covariance matrix). We show the average error w.r.t number of observations:
 ```{r, warning = FALSE}
 # estimate error by loop
-err_scm_vs_T <- c()
-err_stat_diag_vs_T <- c()
+err_scm_vs_T <- err_stat_diag_vs_T <- c()
 index_T <- N*seq(5)
-
 for (T in index_T) {
   X <- xts(mvrnorm(T, mu, Sigma), order.by = as.Date('1995-03-15') + 1:T)
   # use statistical factor model

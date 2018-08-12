@@ -65,14 +65,12 @@
 covFactorModel <- function(X, type = "S", econ_fact = NA,
                            K = 1, orthonormal = "factor", max_iter = 1, tol = 1e-3, 
                            Psi_struct = "diag", stock_sector_info = NA) {
-  if (type == "ML") {
-    Sigma <- cov_factor_ML(cov(X), K, 0)
-  } else {
+  if (type == "ML")
+    Sigma <- covFactorModelML(cov(X), K, 0)
+  else
     Sigma <- factorModel(X, type, econ_fact,
                          K, orthonormal, max_iter, tol, 
-                         Psi_struct, stock_sector_info, TRUE)$Sigma
-  }
-  
+                         Psi_struct, stock_sector_info, rtn_Sigma = TRUE)$Sigma
   return(Sigma)
 }
 
@@ -83,7 +81,7 @@ covFactorModel <- function(X, type = "S", econ_fact = NA,
 #            Psi = diag(psi1, ..., psip) >= 0
 
 # implement of efficient algorithm
-cov_factor_ML <- function(S, K, epsilon, tol = 1e-3, max_iter = 100) {
+covFactorModelML <- function(S, K, epsilon, tol = 1e-3, max_iter = 100) {
   
   # ad-hoc initialization by trivial estimation
   tmp <- eigen(x = S, symmetric = TRUE)

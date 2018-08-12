@@ -49,7 +49,7 @@ knit_hooks$set(pngquant = hook_pngquant)
 
 # Comparison with other packages
 We compare the provided package `covFactorModel` with the existing package `FinCovRegularization` and function `stats::factanal()`.
-First, we compare the results of covariance matrix estimation by using our package `covFactorModel` and another package `FinCovRegularization`, which also estimate the covariance matrix of asset returns via three types of factor models as we do. We start by loading built-in data from package `FinCovRegularization`:
+First, we compare the estimation results with package `FinCovRegularization`, which also estimates the covariance matrix of asset returns via three types of factor models as our package. We start by loading built-in data from package `FinCovRegularization`:
 ```{r, message = FALSE, warning = FALSE, cache = TRUE}
 library(FinCovRegularization)
 library(xts)
@@ -65,36 +65,36 @@ factor_xts <- as.xts(factor, order.by = as.Date("1995-03-15")+1:T)
 
 # sector information for BARRA Industry factor model
 # from help page of function FinCovRegularization::FundamentalFactor.Cov
-Indicator <- matrix(0, 10, 3)
-dimnames(Indicator) <- list(colnames(assets), c("Drug", "Auto", "Oil"))
-Indicator[c("ABT", "LLY", "MRK", "PFE"), "Drug"] <- 1
-Indicator[c("F", "GM"), "Auto"] <- 1
-Indicator[c("BP", "CVX", "RD", "XOM"), "Oil"] <- 1
+beta <- matrix(0, 10, 3)
+dimnames(beta) <- list(colnames(assets), c("Drug", "Auto", "Oil"))
+beta[c("ABT", "LLY", "MRK", "PFE"), "Drug"] <- 1
+beta[c("F", "GM"), "Auto"] <- 1
+beta[c("BP", "CVX", "RD", "XOM"), "Oil"] <- 1
 sector_info <- c(rep(1, 4),
                  rep(2, 2),
                  rep(3, 4))
 ```
-Then, we use the two packages to compute covariance matrix estimation via three factor models and compare the results:
+Then, we use the two packages to compute the covariance matrix estimation via three factor models and compare the results:
 ```{r, message = FALSE, warning = FALSE, cache = TRUE}
 library(covFactorModel)
 # compare cov by macroeconomic factor model
-cov_macro <- covFactorModel(assets_xts, type = "M", econ_fact = factor_xts)
-my_cov_macro <- MacroFactor.Cov(assets, factor)
+my_cov_macro <- covFactorModel(assets_xts, type = "M", econ_fact = factor_xts)
+cov_macro <- MacroFactor.Cov(assets, factor)
 norm(cov_macro - my_cov_macro, "F")
 
 # compare cov by BARRA Industry factor model
-cov_BARRA <- covFactorModel(assets_xts, type = "B", stock_sector_info = sector_info)
-my_cov_BARRA <- FundamentalFactor.Cov(assets, exposure = Indicator, method = "OLS")
+my_cov_BARRA <- covFactorModel(assets_xts, type = "B", stock_sector_info = sector_info)
+cov_BARRA <- FundamentalFactor.Cov(assets, exposure = beta, method = "OLS")
 norm(cov_BARRA - my_cov_BARRA, "F")
 
 # compare cov by statistical factor model
-cov_stat <- covFactorModel(assets_xts, type = "S", K = 3)
-my_cov_stat <- StatFactor.Cov(assets, 3)
+my_cov_stat <- covFactorModel(assets_xts, type = "S", K = 3)
+cov_stat <- StatFactor.Cov(assets, 3)
 norm(cov_stat - my_cov_stat, "F")
 ```
-It is clear that the results from `covFactorModel` and `FinCovRegularization` are exactly the same. Note that different from the three individual functions in `FinCovRegularization`, the package `covFactorModel` provides one uniform function that with the argument `type` to choose the type of factor model. When use the BARRA Industry factor model, `covFactorModel` requires sector information in vector form or nothing if column names of data matrix is contained in the in-built database `data(stock_sector_database)`, while `FinCovRegularization` forces user to pass the sector information in matrix form. Besides, `covFactorModel` allows user to choose different structures on residual covariance matrix, while `FinCovRegularization` assumes it to be diagonal only.
+It is clear that the covariance matrix estimation results from the packages `covFactorModel` and `FinCovRegularization` are exactly the same. Note that `covFactorModel` allows the user to choose different structures on residual covariance matrix (i.e., scaled identity, diagonal, block diagonal, and full), while `FinCovRegularization` assumes it to be diagonal only. (When use the BARRA Industry factor model, `covFactorModel` requires sector information in vector form or nothing if column names of data matrix is contained in the in-built database `data(stock_sector_database)`, while `FinCovRegularization` forces user to pass the sector information in matrix form.)
 
-Next, we compare the performance of `covFactorModel()` and `factanal()` in covariance matrix estimation. By description (use `?factanal` for details) of `factanal()`, it performs a maximum-likelihood factor analysis on a covariance matrix or data matrix and is in essence a model for the correlation matrix. We compare the correlation matrix estimation in terms of PRIAL (see next section for details) and running time. Since `covFactorModel()` returns the covariance matrix, we use `cov2cor()` to obtain the correlation matrix. As shown in Figure \@ref(fig:package-compare), `covFactorModel()` under `type = "S"` can achieve proximal estimation performance but be much quicker compared with `factanal()`, while `covFactorModel()` under `type = "ML"` can achieve the exact same PRIAL performance and still be much more efficient than `factanal()`.
+Next, we compare the performance of `covFactorModel()` and `stats::factanal()` in covariance matrix estimation. From the description of `factanal()` (use `?factanal` for details), it performs a maximum-likelihood factor analysis on a covariance matrix or data matrix and is in essence a model for the correlation matrix. We compare the correlation matrix estimation in terms of PRIAL (see next section for details) and running time. Since `covFactorModel()` returns the covariance matrix, we use `cov2cor()` to obtain the correlation matrix. As shown in Figure \@ref(fig:package-compare), `covFactorModel()` can achieve a similar estimation performance but is much quicker compared with `factanal()`.
 ```{r package-compare, echo = FALSE, out.width = "100%", fig.cap = "Average PRIAL and running time."}
 knitr::include_graphics("figures/package_compare.png", auto_pdf = TRUE)
 ```
@@ -135,7 +135,7 @@ head(SP500_index)
 We first build a _macroeconomic factor model_, where `SP500_index` is used as one macroeconomic factor:
 ```{r}
 library(covFactorModel)
-# compute log-return
+# compute log-returns
 X <- diff(log(data_set), na.pad = FALSE)
 f <- diff(log(SP500_index), na.pad = FALSE)
 N <- ncol(X)  # number of stocks
@@ -149,7 +149,7 @@ X_ <- with(macro_econ_model,
            matrix(alpha, T, N, byrow = TRUE) + f %*% t(beta) + residual)
 norm(X - X_, "F")
 
-par(mfrow = c(1,2))
+par(mfrow = c(1, 2))
 barplot(macro_econ_model$alpha, horiz = TRUE, 
         main = "alpha", col = "red", cex.names = 0.75, las = 1)
 barplot(t(macro_econ_model$beta), horiz = TRUE, 
@@ -157,7 +157,8 @@ barplot(t(macro_econ_model$beta), horiz = TRUE,
 ```
 
 In finance, this is also known as capital asset pricing model (CAPM) assuming the risk free rate is zero. The term `alpha` is the stock's abnormal return and `beta` is the stock's responsiveness to the market return.
-Next, we build a _BARRA industry factor model_:
+
+Next, we build a _BARRA industry factor model:_
 ```{r}
 barra_model <- factorModel(X, type = "B")
 print(barra_model$beta)
@@ -180,9 +181,9 @@ norm(X - X_, "F")
 ```
 
 ## Usage of `covFactorModel()`
-The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix (i.e., diagonal, block diagonal, scaled identity, and full).
+The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix (i.e., scaled identity, diagonal, block diagonal, and full).
 
-Firstly, we compare covariance matrix estimation based on different factor model decomposition. Let's start by preparing some parameters for the synthetic data generation:
+Firstly, we compare covariance matrix estimation based on different factor model decompositions. Let's start by preparing some parameters for the synthetic data generation:
 ```{r, fig.width = 3, out.width = "20%", fig.asp = 3}
 library(covFactorModel)
 library(xts)
@@ -192,27 +193,26 @@ library(pheatmap)
 # create parameters for generation of synthetic data
 N <- 200  # number of stocks
 mu <- rep(0, N) 
-num_sector <- 5 # num of sectors
-stock_sector_info <- rep(1:num_sector, each = N/num_sector)
+num_sectors <- 5 # num of sectors
+stock_sector_info <- rep(1:num_sectors, each = N/num_sectors)
 # generate beta following BARRA model
-beta <- matrix(0, N, num_sector)
-for (i in 1:num_sector) {
+beta <- matrix(0, N, num_sectors)
+for (i in 1:num_sectors) {
   mask <- stock_sector_info == i
   beta[mask, i] <- 1
 }
 # show beta
-colnames(beta) <- paste("f", 1:num_sector, sep = "")
+colnames(beta) <- paste0("f", 1:num_sectors)
 pheatmap(beta, cluster_rows = FALSE, cluster_cols = FALSE, color = c(1, 0), legend = FALSE,
          main = "Factor loading (beta)")
 ```
 ```{r, fig.width = 7}
 Psi <- diag(N)
-Sigma_f <- diag(num_sector)
+Sigma_f <- diag(num_sectors)
 Sigma <- beta %*% Sigma_f %*% t(beta) + Psi
 
 # plot first 20 eigenvalues of Sigma
-plot(eigen(Sigma)$values[1:20], type = "o", pch = 20, 
-     xlab = "eigenvalue index", ylab = "value")
+plot(eigen(Sigma)$values[1:20], type = "o", pch = 20, xlab = "eigenvalue index", ylab = "value")
 ```
 
 Then, we simply use function `covFactorModel()` (by default it uses a diagonal structure for the residual covariance matrix). We show the square error (SE) $\lVert \hat{\boldsymbol{\Sigma}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2}$ w.r.t. number of observations:
@@ -225,21 +225,20 @@ for (T in index_T) {
   # generate factors and observed data matrix
   factors <- xts(mvrnorm(T, rep(0, num_sector), Sigma_f), 
                  order.by = as.Date('1995-03-15') + 1:T)
-  X <- factors %*% t(beta) + xts(mvrnorm(T, mu, Psi), 
-                                 order.by = as.Date('1995-03-15') + 1:T)
+  X <- factors %*% t(beta) + xts(mvrnorm(T, mu, Psi), order.by = index(factors))
    
-  # use sample covariance matrix
+  # sample covariance matrix
   err_scm <- c(err_scm, norm(Sigma - cov(X), "F")^2)
   
-  # use macroeconomic factor model
+  # macroeconomic factor model
   cov_macroecon <- covFactorModel(X, type = "M", econ_fact = factors)
   err_macroecon <- c(err_macroecon, norm(Sigma - cov_macroecon, "F")^2)
   
-  # use BARRA factor model
+  # BARRA factor model
   cov_barra <- covFactorModel(X, type = "B", stock_sector_info = stock_sector_info)
   err_barra <- c(err_barra, norm(Sigma - cov_barra, "F")^2)
   
-  # use statistical factor model with diagonal Psi (default)
+  # statistical factor model with diagonal Psi (default)
   cov_stat <- covFactorModel(X, K = num_sector)
   err_stat <- c(err_stat, norm(Sigma - cov_stat, "F")^2)
 }
@@ -255,7 +254,7 @@ matplot(index_T/N, res,
 legend("topright", inset = 0.01, legend = colnames(res), pch = 20, col = colors)
 ```
 
-Obviously, using factor models for covariance matrix estimation definitely helps (note that BARRA is definitely the best simply because the synthetic data was generated according to the BARRA model). In order to show how well the estimated covariance matrices do compared to the sample covariance matrix (benchmark), the estimation error will also be evaluated in terms of the PRIAL (PeRcentage Improvement in Average Loss):
+Obviously, using factor models for covariance matrix estimation definitely helps (note that BARRA is obviously the best simply because the synthetic data was generated according to the BARRA model). In order to show how well the estimated covariance matrices do compared to the sample covariance matrix (benchmark), the estimation error can also be evaluated in terms of PRIAL (PeRcentage Improvement in Average Loss):
 $$\mathsf{PRIAL} = 100\times \frac{\lVert \boldsymbol{\Sigma}_{\mathsf{scm}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2} - \lVert \hat{\boldsymbol{\Sigma}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2}}{\lVert \boldsymbol{\Sigma}_{\mathsf{scm}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2}}$$
 which goes to 0 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the sample covariance matrix $\boldsymbol{\Sigma}_{\sf scm}$ and goes to 100 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the true covariance matrix $\boldsymbol{\Sigma}_{\sf true}$.
 
@@ -270,7 +269,7 @@ legend("topright", inset=0.02, legend = colnames(res), pch = 20, col = colors)
 
 The performance of BARRA Industry and macroeconomic factor models seems better than that of the statistical factor model, but this is just because the synthetic data has been generated according to the BARRA model and because the macroeconomic factor model has been fed with the exact factors. The reality of market data may be different with other results (e.g., the industry information might be missing or wrong because it changes over time, and so are the factors). The statistical factor model is always easier to implement and more robust to the aforementioned practical issues.
 
-In Figure \@ref(fig:cov-stat-perform), we generate synthetic data using $\boldsymbol{\Psi}$ with different structures, namely, diagonal, block diagonal, scale identity, and full. Then we estimate the covariance matrix using the statistical factor model (imposing different structures on $\boldsymbol{\Psi}$) and show the performance. The estimation based on the statistical factor model can beat the sample covariance matrix mostly except when $\boldsymbol{\Psi}$ has a full structure (i.e., no structure at all).
+In Figure \@ref(fig:cov-stat-perform), we generate synthetic data using $\boldsymbol{\Psi}$ with different structures, namely, diagonal, block diagonal, scaled identity, and full. Then we estimate the covariance matrix using the statistical factor model (imposing different structures on $\boldsymbol{\Psi}$) and show the performance. The estimation based on the statistical factor model can beat the sample covariance matrix mostly except when $\boldsymbol{\Psi}$ has a full structure (i.e., no structure at all).
 
 ```{r cov-stat-perform, echo = FALSE, out.width = "100%", fig.cap = "Performance of estimation under different Psi structures."}
 knitr::include_graphics("figures/cov_stat_perform.png", auto_pdf = TRUE)
@@ -299,7 +298,7 @@ getSectorInfo(mystocks, my_stock_sector_database)
 
 The factor model decomposes the stock returns into two parts: low-dimensional factors and idiosyncratic residual noise. There are three basic types of factor models [@tsay2005analysis], namely, macroeconomic, fundamental, and statistical. Suppose there are $N$ stocks in market and we have $T$ observations, then factor models can be expressed in linear form:
 $$x_{i,t} = \alpha_{i} + \beta_{1,i}f_{1,t} + \dots + \beta_{K,i}f_{K,t} + \epsilon_{i,t}, \; t = 1, \dots, T$$
-where $i$ is the stock index, $K$ is the number of factors, $\alpha_{i}$ is the intercept of the $i$-th stock, $\mathbf{f}_{k} = [f_{k,1}, \dots, f_{k,T}]^{T}$ is the common $k$-th factor, $\boldsymbol{\beta}_{i} = [\beta_{1,i}, \dots, \beta_{K,i}]^{T}$ is the factor loading of the $i$-th stock and $\epsilon_{i,t}$ is residual term for the $i$-th stock at time $t$. With the compact combination $\mathbf{F}=\left[\begin{array}{ccc} \mathbf{f}_{1} & \cdots & \mathbf{f}_{K}\end{array}\right]$, $\mathbf{x}_{i} = [x_{i,1}, \dots, x_{i,T}]^T$, and $\boldsymbol{\epsilon}_{i} = [\epsilon_{i,1}, \dots, \epsilon_{i,T}]^T$ it can also be written into vector form:
+where $i$ is the stock index, $K$ is the number of factors, $\alpha_{i}$ is the intercept of the $i$-th stock, $\mathbf{f}_{k} = [f_{k,1}, \dots, f_{k,T}]^{T}$ is the common $k$-th factor, $\boldsymbol{\beta}_{i} = [\beta_{1,i}, \dots, \beta_{K,i}]^{T}$ is the factor loading of the $i$-th stock and $\epsilon_{i,t}$ is residual term for the $i$-th stock at time $t$. With the compact notation $\mathbf{F}=\left[\begin{array}{ccc} \mathbf{f}_{1} & \cdots & \mathbf{f}_{K}\end{array}\right]$, $\mathbf{x}_{i} = [x_{i,1}, \dots, x_{i,T}]^T$, and $\boldsymbol{\epsilon}_{i} = [\epsilon_{i,1}, \dots, \epsilon_{i,T}]^T$ it can also be written into vector form:
 $$\mathbf{x}_{i} = \mathbf{1}\alpha_{i} + \mathbf{F} \boldsymbol{\beta}_{i} + \boldsymbol{\epsilon}_{i}, \; i=1,\dots,N$$
 
 ## `factorModel()`: Build factor model for given data
@@ -324,18 +323,18 @@ $$\underset{\mathbf{f}_{t}}{\mathsf{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Ver
 The solution is $\hat{\mathbf{f}}_{t}=(\mathbf{B}^{T}\mathbf{B})^{-1}\mathbf{B}^{T}\mathbf{x}_{t}, \; t=1,\dots,T$ and the residual can be simply calculated as $[\hat{\epsilon}_{1,t},\dots,\hat{\epsilon}_{N,t}]^{T}=\mathbf{x}_{t}-\mathbf{B}\hat{\mathbf{f}}_{t}$.
 
 ### Statistical factor model (aka implicit factor model)
- The statistical factor model holds the assumption that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. We use the following iterative method [see [@tsay2005analysis] for details] to estimate the parameters:
+ The statistical factor model holds the assumption that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. We use the following iterative method to estimate the parameters [see [@tsay2005analysis] for details]:
 
 > **Algorithm 1**    
   1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and 
-     its eigen-decomposition (EVD) $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
+     its eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
   2. Set index $s=1$   
   3. Compute $\hat{\mathbf{B}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s)} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}_{(s)}$, $\hat{\boldsymbol{\Psi}}_{(s)} = \textrm{struct}(\hat{\boldsymbol{\Sigma}} - \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)})$, $\hat{\boldsymbol{\Sigma}}_{(s)} = \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)} + \hat{\boldsymbol{\Psi}}_{(s)}$      
-  4. Update EVD $\hat{\boldsymbol{\Sigma}} - \hat{\boldsymbol{\Psi}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s+1)} \hat{\boldsymbol{\Lambda}}_{(s+1)} \hat{\boldsymbol{\Gamma}}^{T}_{(s+1)}$ and $s \gets s+1$   
+  4. Update EVD: $\hat{\boldsymbol{\Sigma}} - \hat{\boldsymbol{\Psi}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s+1)} \hat{\boldsymbol{\Lambda}}_{(s+1)} \hat{\boldsymbol{\Gamma}}^{T}_{(s+1)}$ and $s \gets s+1$   
   5. Repeat Steps 3-4 until convergence.   
   6. Return $(\hat{\mathbf{B}}_{(s)}, \hat{\boldsymbol{\Psi}}_{(s)}, \hat{\boldsymbol{\Sigma}}_{(s)})$   
         
-where $\textrm{struct}()$ is to impose certain structure on $\hat{\boldsymbol{\Psi}}_{(s)}$, one typical option is diagonal. After the algorithm is done, we can calculate $\hat{\boldsymbol{\alpha}} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{x}_{t}$ and build statistical factor model use algorithm output:
+where $\textrm{struct}()$ is to impose certain structure on $\hat{\boldsymbol{\Psi}}_{(s)}$, one typical option is diagonal. After the algorithm is done, we can calculate $\hat{\boldsymbol{\alpha}} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{x}_{t}$ and build the statistical factor model using the algorithm output:
 $$ \hat{\mathbf{B}} = \hat{\boldsymbol{\Gamma}} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}, \quad \hat{\mathbf{f}}_{t} = \hat{\boldsymbol{\Lambda}}^{-\frac{1}{2}} \hat{\boldsymbol{\Gamma}}^{T} (\mathbf{x}_{t} - \hat{\boldsymbol{\alpha}}), \quad \hat{\boldsymbol{\epsilon}}_{t} = \mathbf{x}_{t} - \hat{\boldsymbol{\alpha}} - \hat{\mathbf{B}} \hat{\mathbf{f}}_{t}$$
 
 ## `covFactorModel()`: Covariance matrix estimation via factor models
