@@ -4,7 +4,7 @@
 \alias{factorModel}
 \title{Factor Model Decomposition}
 \usage{
-factorModel(X, type = c("S", "M", "B"), econ_fact, K = 1,
+factorModel(X, type = c("Stat-PCA", "Macro", "Barra"), econ_fact, K = 1,
   orthonormal = c("factor", "beta"), max_iter = 10, tol = 0.001,
   Psi_struct = c("diag", "block_diag", "scaled_identity", "full"),
   stock_sector_info = NA, rtn_Sigma = FALSE)
@@ -14,25 +14,25 @@ factorModel(X, type = c("S", "M", "B"), econ_fact, K = 1,
 \eqn{N} number of assets}
 
 \item{type}{string object indicating the type of factor model to be used:
-\itemize{\item \code{"M"} - macroeconomic factor model, requires user to pass \code{econ_fact}
-         \item \code{"B"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
+\itemize{\item \code{"Macro"} - macroeconomic factor model, requires user to pass \code{econ_fact}
+         \item \code{"Barra"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
           or colnames of \code{X} to be contained in the in-built database \code{data(stock_sector_database)}
-         \item \code{"S"} - statistical factor model, requires user to pass number of factors \code{K} (default)}}
+         \item \code{"Stat-PCA"} - statistical factor model by PCA, requires user to pass number of factors \code{K} (default)}}
 
-\item{econ_fact}{xts object of dimension \eqn{T x K}, required and used when \code{type = "M"}}
+\item{econ_fact}{xts object of dimension \eqn{T x K}, required and used when \code{type = "Macro"}}
 
-\item{K}{number of factors when build a statistical factor model, used when \code{type = "S"} (default: \eqn{1})}
+\item{K}{number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})}
 
 \item{orthonormal}{string object indicating position of normalization in the statistical factor 
-model, used when \code{type = "S"}
+model, used when \code{type = "Stat-PCA"}
 \itemize{\item \code{"factor"} - covariance matrix of factors is identity (default)
          \item \code{"beta"} - columns of beta are orthonormal}}
 
 \item{max_iter}{positive integer indicating maximum number of iterations when build statistical 
-factor model, used when \code{type = "S"} (default: \eqn{10})}
+factor model, used when \code{type = "Stat-PCA"} (default: \eqn{10})}
 
 \item{tol}{double object indicating relative tolerance to determine convergence when estimate 
-statistical factor model, used when \code{type = "S"} (default: \eqn{0.001})}
+statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{0.001})}
 
 \item{Psi_struct}{string indicating type of structure imposed on the covariance matrix of the residuals, \code{Psi},
 used when \code{rtn_Sigma = TRUE}
@@ -42,7 +42,7 @@ used when \code{rtn_Sigma = TRUE}
          \item \code{"scaled_identity"} - \code{Psi} is a scale identity matrix
          \item \code{"full"} - \code{Psi} is a full matrix}}
 
-\item{stock_sector_info}{positive integer vector of length \eqn{N}, used when \code{type = "B"} or \code{Psi_struct = "block_diag"}}
+\item{stock_sector_info}{positive integer vector of length \eqn{N}, used when \code{type = "Barra"} or \code{Psi_struct = "block_diag"}}
 
 \item{rtn_Sigma}{logical variable indicating whether to calculate and return the covariance matrix}
 }
@@ -61,11 +61,11 @@ Decomposes data matrix into factors and residual idiosyncratic component.
 \details{
 Decomposes data matrix into factors and residual idiosyncratic component. The 
          user can choose different types of factor models, namely, macroeconomic, BARRA, 
-         or statistical. For macroeconomic factor model, set \code{type = "M"} and pass 
-         argument \code{econ_fact}; for BARRA Industry factor model, set \code{type = "B"} 
+         or statistical. For macroeconomic factor model, set \code{type = "Macro"} and pass 
+         argument \code{econ_fact}; for BARRA Industry factor model, set \code{type = "Barra"} 
          and pass argument \code{stock_sector_info} (or make column names of \code{X} be 
          in the in-built database \code{data(stock_sector_database)}); for statistical 
-         factors model, set \code{type = "S"} and pass argument \code{K}, \code{max_iter},
+         factors model, set \code{type = "Stat-PCA"} and pass argument \code{K}, \code{max_iter},
          \code{tol} and \code{Psi_struct}, and possibly \code{stock_sector_info} if a block 
          diagonal structure for Psi is required. This function can also estimate covariance 
          matrix when set \code{rtn_Sigma = TRUE}. User can choose different type of residual
@@ -88,12 +88,12 @@ econ_fact <- xts(mvrnorm(T, c(0, 0), diag(2)/1000), order.by = index(X))
 colnames(econ_fact) <- c("factor1", "factor2")
 
 # build a macroeconomic factor model
-macro_econ_model <- factorModel(X, type = "M", econ_fact = econ_fact)
+macro_econ_model <- factorModel(X, type = "Macro", econ_fact = econ_fact)
 
 # build a BARRA industry factor model 
 # (assuming assets A and C belong to sector 1 and asset B to sector 2)
 stock_sector_info <- c(1, 2, 1)
-barra_model <- factorModel(X, type = "B", stock_sector_info = stock_sector_info)
+barra_model <- factorModel(X, type = "Barra", stock_sector_info = stock_sector_info)
 
 # build a statistical factor model
 # set factor dimension as K=2

@@ -4,11 +4,11 @@
 #' 
 #' @details Decomposes data matrix into factors and residual idiosyncratic component. The 
 #'          user can choose different types of factor models, namely, macroeconomic, BARRA, 
-#'          or statistical. For macroeconomic factor model, set \code{type = "M"} and pass 
-#'          argument \code{econ_fact}; for BARRA Industry factor model, set \code{type = "B"} 
+#'          or statistical. For macroeconomic factor model, set \code{type = "Macro"} and pass 
+#'          argument \code{econ_fact}; for BARRA Industry factor model, set \code{type = "Barra"} 
 #'          and pass argument \code{stock_sector_info} (or make column names of \code{X} be 
 #'          in the in-built database \code{data(stock_sector_database)}); for statistical 
-#'          factors model, set \code{type = "S"} and pass argument \code{K}, \code{max_iter},
+#'          factors model, set \code{type = "Stat-PCA"} and pass argument \code{K}, \code{max_iter},
 #'          \code{tol} and \code{Psi_struct}, and possibly \code{stock_sector_info} if a block 
 #'          diagonal structure for Psi is required. This function can also estimate covariance 
 #'          matrix when set \code{rtn_Sigma = TRUE}. User can choose different type of residual
@@ -17,20 +17,20 @@
 #' @param X xts object of dimension \eqn{T x N}, with \eqn{T} number of observations and 
 #'        \eqn{N} number of assets
 #' @param type string object indicating the type of factor model to be used:
-#'        \itemize{\item \code{"M"} - macroeconomic factor model, requires user to pass \code{econ_fact}
-#'                 \item \code{"B"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
+#'        \itemize{\item \code{"Macro"} - macroeconomic factor model, requires user to pass \code{econ_fact}
+#'                 \item \code{"Barra"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
 #'                  or colnames of \code{X} to be contained in the in-built database \code{data(stock_sector_database)}
-#'                 \item \code{"S"} - statistical factor model, requires user to pass number of factors \code{K} (default)} 
-#' @param econ_fact xts object of dimension \eqn{T x K}, required and used when \code{type = "M"}
-#' @param K number of factors when build a statistical factor model, used when \code{type = "S"} (default: \eqn{1})
+#'                 \item \code{"Stat-PCA"} - statistical factor model by PCA, requires user to pass number of factors \code{K} (default)} 
+#' @param econ_fact xts object of dimension \eqn{T x K}, required and used when \code{type = "Macro"}
+#' @param K number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})
 #' @param orthonormal string object indicating position of normalization in the statistical factor 
-#'        model, used when \code{type = "S"}
+#'        model, used when \code{type = "Stat-PCA"}
 #'        \itemize{\item \code{"factor"} - covariance matrix of factors is identity (default)
 #'                 \item \code{"beta"} - columns of beta are orthonormal}
 #' @param max_iter positive integer indicating maximum number of iterations when build statistical 
-#'        factor model, used when \code{type = "S"} (default: \eqn{10})
+#'        factor model, used when \code{type = "Stat-PCA"} (default: \eqn{10})
 #' @param tol double object indicating relative tolerance to determine convergence when estimate 
-#'        statistical factor model, used when \code{type = "S"} (default: \eqn{0.001})
+#'        statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{0.001})
 #' @param Psi_struct string indicating type of structure imposed on the covariance matrix of the residuals, \code{Psi},
 #'        used when \code{rtn_Sigma = TRUE}
 #'        \itemize{\item \code{"diag"} - \code{Psi} is a diagonal matrix (default)
@@ -38,7 +38,7 @@
 #'                 to determine the structure of the blocks
 #'                 \item \code{"scaled_identity"} - \code{Psi} is a scale identity matrix
 #'                 \item \code{"full"} - \code{Psi} is a full matrix}
-#' @param stock_sector_info positive integer vector of length \eqn{N}, used when \code{type = "B"} or \code{Psi_struct = "block_diag"}
+#' @param stock_sector_info positive integer vector of length \eqn{N}, used when \code{type = "Barra"} or \code{Psi_struct = "block_diag"}
 #' @param rtn_Sigma logical variable indicating whether to calculate and return the covariance matrix
 #' @return A list with following components:
 #'         \item{\code{alpha}}{vector of length \eqn{N}, the constant part}
@@ -65,19 +65,19 @@
 #' colnames(econ_fact) <- c("factor1", "factor2")
 #' 
 #' # build a macroeconomic factor model
-#' macro_econ_model <- factorModel(X, type = "M", econ_fact = econ_fact)
+#' macro_econ_model <- factorModel(X, type = "Macro", econ_fact = econ_fact)
 #' 
 #' # build a BARRA industry factor model 
 #' # (assuming assets A and C belong to sector 1 and asset B to sector 2)
 #' stock_sector_info <- c(1, 2, 1)
-#' barra_model <- factorModel(X, type = "B", stock_sector_info = stock_sector_info)
+#' barra_model <- factorModel(X, type = "Barra", stock_sector_info = stock_sector_info)
 #' 
 #' # build a statistical factor model
 #' # set factor dimension as K=2
 #' stat_model <- factorModel(X, K = 2)
 #' @import xts
 #' @export
-factorModel <- function(X, type = c("S", "M", "B"), econ_fact,
+factorModel <- function(X, type = c("Stat-PCA", "Macro", "Barra"), econ_fact,
                         K = 1, orthonormal = c("factor", "beta"), max_iter = 10, tol = 1e-3, 
                         Psi_struct = c("diag", "block_diag", "scaled_identity", "full"), 
                         stock_sector_info = NA, rtn_Sigma = FALSE) {
@@ -87,26 +87,26 @@ factorModel <- function(X, type = c("S", "M", "B"), econ_fact,
   type <- match.arg(type)
   orthonormal <- match.arg(orthonormal)
   Psi_struct <- match.arg(Psi_struct)
-  if (type == "M" && anyNA(econ_fact)) stop("NA exists in explicit factors!")
-  if (type == "M" && nrow(X) != nrow(econ_fact)) stop("Number of rows of X and econ_fact does not match!")
-  if (type == "B" || Psi_struct == "block_diag") {
+  if (type == "Macro" && anyNA(econ_fact)) stop("NA exists in explicit factors!")
+  if (type == "Macro" && nrow(X) != nrow(econ_fact)) stop("Number of rows of X and econ_fact does not match!")
+  if (type == "Barra" || Psi_struct == "block_diag") {
     if (!missing(stock_sector_info)) {
       if (!is.vector(stock_sector_info)) stop("Invalid sector information form, must be integer vector!")
       if (ncol(X) != length(stock_sector_info)) stop("Invalid argument: stock_sector_info, length does not match!")
     } else stock_sector_info <- getSectorInfo(colnames(X))$stock_sector_info
   }
-  if (type == "S" && K != as.integer(K)) stop("K must be an integer!")
-  if (type == "S" && K <= 0) stop("K must be positive!")
-  if (type == "S" && K > ncol(X)) stop("K cannot be larger than assets dimension!")
-  if (type == "S" && max_iter != as.integer(max_iter)) stop("max_iter must be an integer")
-  if (type == "S" && max_iter <= 0) stop("max_iter must be positive!")
-  if (type == "S" && tol <= 0) stop("tol must be positive!")
+  if (type == "Stat-PCA" && K != as.integer(K)) stop("K must be an integer!")
+  if (type == "Stat-PCA" && K <= 0) stop("K must be positive!")
+  if (type == "Stat-PCA" && K > ncol(X)) stop("K cannot be larger than assets dimension!")
+  if (type == "Stat-PCA" && max_iter != as.integer(max_iter)) stop("max_iter must be an integer")
+  if (type == "Stat-PCA" && max_iter <= 0) stop("max_iter must be positive!")
+  if (type == "Stat-PCA" && tol <= 0) stop("tol must be positive!")
   ##########################################
   
   # build factor model
-  if (type == "M") factor_model <- macroeconFactorModel(X, econ_fact, Psi_struct, stock_sector_info, rtn_Sigma)
-  if (type == "B") factor_model <- BarraIndFatorModel(X, Psi_struct, stock_sector_info, rtn_Sigma)
-  if (type == "S") factor_model <- statFactorModel(X, K, orthonormal, max_iter, tol, Psi_struct, stock_sector_info, rtn_Sigma)
+  if (type == "Macro") factor_model <- macroeconFactorModel(X, econ_fact, Psi_struct, stock_sector_info, rtn_Sigma)
+  if (type == "Barra") factor_model <- BarraIndFatorModel(X, Psi_struct, stock_sector_info, rtn_Sigma)
+  if (type == "Stat-PCA") factor_model <- statFactorModel(X, K, orthonormal, max_iter, tol, Psi_struct, stock_sector_info, rtn_Sigma)
   
   # return the model
   return(factor_model)

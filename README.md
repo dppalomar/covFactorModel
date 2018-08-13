@@ -57,7 +57,7 @@ For more detailed information, please check the vignette: [GitHub-html-vignette]
 
 
 ## Usage of `factorModel()`
-The function `factorModel()` builds a factor model for the data, i.e., it decomposes the asset returns into a factor component and a residual component. The user can choose different types of factor models, namely, macroeconomic, BARRA, or statistical. We start by preparing some raw data:
+The function `factorModel()` builds a factor model for the data, i.e., it decomposes the asset returns into a factor component and a residual component. The user can choose different types of factor models, namely, macroeconomic, BARRA, or statistical. We start by generating some synthetic data:
 
 ```r
 library(covFactorModel)
@@ -83,7 +83,7 @@ colnames(econ_fact) <- c("factor1", "factor2")
 We first build a _macroeconomic factor model_, which fits the data to the given macroeconomic factors:
 
 ```r
-macro_econ_model <- factorModel(X, type = "M", econ_fact = econ_fact)
+macro_econ_model <- factorModel(X, type = "Macro", econ_fact = econ_fact)
 
 # sanity check
 X_ <- with(macro_econ_model, 
@@ -96,7 +96,7 @@ Next, we build a _BARRA industry factor model_ (assuming assets A and C belong t
 
 ```r
 stock_sector_info <- c(1, 2, 1)
-barra_model <- factorModel(X, type = "B", stock_sector_info = stock_sector_info)
+barra_model <- factorModel(X, type = "Barra", stock_sector_info = stock_sector_info)
 
 # sanity check
 X_ <- with(barra_model, 
@@ -119,8 +119,8 @@ norm(X - X_, "F")
 ```
 
 ## Usage of `covFactorModel()`
-The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix, namely, diagonal and block diagonal by sectors.
-We start by preparing some raw data:
+The function `covFactorModel()` estimates the covariance matrix of the data based on factor models. The user can choose not only the type of factor model (i.e., macroeconomic, BARRA, or statistical) but also the structure of the residual covariance matrix (i.e., scaled identity, diagonal, block diagonal, and full).
+We start by preparing some synthetic data:
 
 ```r
 library(covFactorModel)
@@ -132,7 +132,7 @@ set.seed(234)
 K <- 1   # number of factors
 N <- 400  # number of stocks
 mu <- rep(0, N)
-beta <- mvrnorm(N, rep(1,K), diag(K)/10)
+beta <- mvrnorm(N, rep(1, K), diag(K)/10)
 Sigma <- beta %*% t(beta) + diag(N)
 print(eigen(Sigma)$values[1:10])
 #>  [1] 438.757   1.000   1.000   1.000   1.000   1.000   1.000   1.000
@@ -143,19 +143,17 @@ Then, we simply use function `covFactorModel()` (by default it uses a _statistic
 
 ```r
 # estimate error by loop
-err_scm_vs_T <- c()
-err_stat_diag_vs_T <- c()
+err_scm_vs_T <- err_statPCA_diag_vs_T <- c()
 index_T <- N*seq(5)
-
 for (T in index_T) {
   X <- xts(mvrnorm(T, mu, Sigma), order.by = as.Date('1995-03-15') + 1:T)
   # use statistical factor model
-  cov_stat_diag <- covFactorModel(X, K = K, max_iter = 10)
-  err_stat_diag_vs_T <- c(err_stat_diag_vs_T, norm(Sigma - cov_stat_diag, "F")^2)
+  cov_statPCA_diag <- covFactorModel(X, K = K, max_iter = 10)
+  err_statPCA_diag_vs_T <- c(err_statPCA_diag_vs_T, norm(Sigma - cov_statPCA_diag, "F")^2)
   # use sample covariance matrix
   err_scm_vs_T <- c(err_scm_vs_T, norm(Sigma - cov(X), "F")^2)
 }
-res <- rbind(err_scm_vs_T, err_stat_diag_vs_T)
+res <- rbind(err_scm_vs_T, err_statPCA_diag_vs_T)
 rownames(res) <- c("SCM", "stat + diag")
 colnames(res) <- paste0("T/N=", index_T/N)
 print(res)

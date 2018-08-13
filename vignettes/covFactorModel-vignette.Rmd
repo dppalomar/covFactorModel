@@ -74,7 +74,7 @@ sector_info <- c(rep(1, 4),
                  rep(2, 2),
                  rep(3, 4))
 ```
-Then, we use the two packages to compute the covariance matrix estimation via three factor models and compare the results:
+Then, we use the two packages to compute the covariance matrix estimation (the comparison of execution time is ignored here for their implements are almost same) via three factor models and compare the results:
 ```{r, message = FALSE, warning = FALSE, cache = TRUE}
 library(covFactorModel)
 # compare cov by macroeconomic factor model
@@ -223,7 +223,7 @@ err_scm <- err_macroecon <- err_barra <- err_stat <- c()
 index_T <- N*seq(10)
 for (T in index_T) {
   # generate factors and observed data matrix
-  factors <- xts(mvrnorm(T, rep(0, num_sector), Sigma_f), 
+  factors <- xts(mvrnorm(T, rep(0, num_sectors), Sigma_f), 
                  order.by = as.Date('1995-03-15') + 1:T)
   X <- factors %*% t(beta) + xts(mvrnorm(T, mu, Psi), order.by = index(factors))
    
@@ -239,7 +239,7 @@ for (T in index_T) {
   err_barra <- c(err_barra, norm(Sigma - cov_barra, "F")^2)
   
   # statistical factor model with diagonal Psi (default)
-  cov_stat <- covFactorModel(X, K = num_sector)
+  cov_stat <- covFactorModel(X, K = num_sectors)
   err_stat <- c(err_stat, norm(Sigma - cov_stat, "F")^2)
 }
 res <- cbind("SCM"           = err_scm,

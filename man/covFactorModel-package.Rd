@@ -28,13 +28,11 @@ and their sectors.
 \section{Help}{
 
 For a quick help see the README:
-\href{https://rawgit.com/dppalomar/covFactorModel/master/README.html}{GitHub-README} and
-\href{https://cran.r-project.org/web/packages/covFactorModel/README.html}{CRAN-README}.
+\href{https://rawgit.com/dppalomar/covFactorModel/master/README.html}{GitHub-README}.
  
 For more details see the vignette:
-\href{https://rawgit.com/dppalomar/covFactorModel/master/vignettes/covFactorModel-vignette.html}{GitHub-html-vignette},
-\href{https://rawgit.com/dppalomar/covFactorModel/master/vignettes/covFactorModel-vignette.pdf}{GitHub-pdf-vignette}, and
-\href{https://cran.r-project.org/web/packages/covFactorModel/vignettes/covFactorModel-vignette.pdf}{CRAN-pdf-vignette}.
+\href{https://rawgit.com/dppalomar/covFactorModel/master/vignettes/covFactorModel-vignette.html}{GitHub-html-vignette}, and
+\href{https://rawgit.com/dppalomar/covFactorModel/master/vignettes/covFactorModel-vignette.pdf}{GitHub-pdf-vignette}.
 }
 
 \references{
