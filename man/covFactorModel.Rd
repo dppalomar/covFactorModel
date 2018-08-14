@@ -5,7 +5,7 @@
 \title{Covariance Matrix Estimation Using Factor Model}
 \usage{
 covFactorModel(X, type = "Stat-PCA", econ_fact = NA, K = 1,
-  orthonormal = "factor", max_iter = 1, tol = 0.001,
+  orthonormal = "factor", max_iter = 10, tol = 0.001, epsilon = 0,
   Psi_struct = "diag", stock_sector_info = NA)
 }
 \arguments{
@@ -17,22 +17,25 @@ covFactorModel(X, type = "Stat-PCA", econ_fact = NA, K = 1,
          \item \code{"Barra"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
           or colnames of \code{X} to be contained in the in-built database \code{data(stock_sector_database)}
          \item \code{"Stat-PCA"} - statistical factor model, requires user to pass number of factors \code{K} (default)
-         \item \code{"ML"} - Maximum likelihood estimation under factor model structure }}
+         \item \code{"stat-ML"} - Maximum likelihood estimation under factor model structure }}
 
 \item{econ_fact}{xts object of dimension \eqn{T x K}, required and used when \code{type = "Macro"}}
 
-\item{K}{number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})}
+\item{K}{number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{1})}
 
 \item{orthonormal}{string object indicating position of normalization in the statistical factor 
 model, used when \code{type = "Stat-PCA"}
 \itemize{\item \code{"factor"} - covariance matrix of factors is identity (default)
          \item \code{"beta"} - columns of beta are orthonormal}}
 
-\item{max_iter}{positive integer indicating maximum number of iterations when build statistical 
-factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})}
+\item{max_iter}{positive integer indicating maximum number of iterations, 
+used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{10})}
 
-\item{tol}{double object indicating relative tolerance to determine convergence when estimate 
-statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{0.001})}
+\item{tol}{double object indicating relative tolerance to determine convergence, 
+used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{0.001})}
+
+\item{epsilon}{nonnegative scale indicating lower bound of residual covariance matrix's diagonal elements, 
+used when \code{type = "Stat-ML"} (default: \eqn{0})}
 
 \item{Psi_struct}{string indicating type of structure imposed on the covariance matrix of the residuals, \code{Psi},
 used when \code{rtn_Sigma = TRUE}
@@ -85,7 +88,5 @@ K. Khamaru and R. Mazumder, “Computation of the maximum likelihood estimator i
 \emph{arXiv preprint arXiv:1801.05935,} 2018.
 }
 \author{
-ZHOU Rui & Daniel P. Palomar
-
 ZHOU Rui & Daniel P. Palomar
 }

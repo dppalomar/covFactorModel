@@ -1,7 +1,5 @@
 #' @title Covariance Matrix Estimation Using Factor Model
 #' 
-#' @author ZHOU Rui & Daniel P. Palomar
-#' 
 #' @description Estimate covariance matrix through factor model.
 #' 
 #' @details see \code{\link{factorModel}}
@@ -13,17 +11,19 @@
 #'                 \item \code{"Barra"} - BARRA Industry factor model, requires user to pass \code{stock_sector_info} 
 #'                  or colnames of \code{X} to be contained in the in-built database \code{data(stock_sector_database)}
 #'                 \item \code{"Stat-PCA"} - statistical factor model, requires user to pass number of factors \code{K} (default)
-#'                 \item \code{"ML"} - Maximum likelihood estimation under factor model structure }
+#'                 \item \code{"stat-ML"} - Maximum likelihood estimation under factor model structure }
 #' @param econ_fact xts object of dimension \eqn{T x K}, required and used when \code{type = "Macro"}
-#' @param K number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})
+#' @param K number of factors when build a statistical factor model, used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{1})
 #' @param orthonormal string object indicating position of normalization in the statistical factor 
 #'        model, used when \code{type = "Stat-PCA"}
 #'        \itemize{\item \code{"factor"} - covariance matrix of factors is identity (default)
 #'                 \item \code{"beta"} - columns of beta are orthonormal}
-#' @param max_iter positive integer indicating maximum number of iterations when build statistical 
-#'        factor model, used when \code{type = "Stat-PCA"} (default: \eqn{1})
-#' @param tol double object indicating relative tolerance to determine convergence when estimate 
-#'        statistical factor model, used when \code{type = "Stat-PCA"} (default: \eqn{0.001})
+#' @param max_iter positive integer indicating maximum number of iterations, 
+#'        used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{10})
+#' @param tol double object indicating relative tolerance to determine convergence, 
+#'        used when \code{type = "Stat-PCA"/"Stat-ML"} (default: \eqn{0.001})
+#' @param epsilon nonnegative scale indicating lower bound of residual covariance matrix's diagonal elements, 
+#'        used when \code{type = "Stat-ML"} (default: \eqn{0})
 #' @param Psi_struct string indicating type of structure imposed on the covariance matrix of the residuals, \code{Psi},
 #'        used when \code{rtn_Sigma = TRUE}
 #'        \itemize{\item \code{"scaled_identity"} - \code{Psi} is a scale identity matrix
@@ -66,10 +66,10 @@
 #' @import xts
 #' @export
 covFactorModel <- function(X, type = "Stat-PCA", econ_fact = NA,
-                           K = 1, orthonormal = "factor", max_iter = 1, tol = 1e-3, 
+                           K = 1, orthonormal = "factor", max_iter = 10, tol = 1e-3, epsilon = 0,
                            Psi_struct = "diag", stock_sector_info = NA) {
-  if (type == "ML")
-    Sigma <- covFactorModelML(cov(X), K, 0)
+  if (type == "Stat-ML")
+    Sigma <- covFactorModelML(S = cov(X), K = K, epsilon = epsilon, tol = tol, max_iter = max_iter)
   else
     Sigma <- factorModel(X, type, econ_fact,
                          K, orthonormal, max_iter, tol, 
@@ -84,7 +84,7 @@ covFactorModel <- function(X, type = "Stat-PCA", econ_fact = NA,
 #            Psi = diag(psi1, ..., psip) >= 0
 
 # implement of efficient algorithm
-covFactorModelML <- function(S, K, epsilon, tol = 1e-3, max_iter = 100) {
+covFactorModelML <- function(S, K, epsilon, tol, max_iter) {
   
   # ad-hoc initialization by trivial estimation
   tmp <- eigen(x = S, symmetric = TRUE)
