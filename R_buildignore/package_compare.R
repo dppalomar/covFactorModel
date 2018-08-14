@@ -79,14 +79,14 @@ for (T in index_T) {
 
     # use statistical factor model
     t1 <- Sys.time()
-    cor_stat_diag <- cov2cor(covFactorModel(X, K = K))
+    cor_stat_diag <- cov2cor(covFactorModel(X, K = K, type = "Stat-PCA"))
     t2 <- Sys.time()
     stat_diag_time <- stat_diag_time + as.numeric(t2 - t1)
     err_stat_diag <- err_stat_diag + norm(Sigma_cor - cor_stat_diag, "F")^2
     
     # use ML method
     t1 <- Sys.time()
-    cor_ML <- cov2cor(covFactorModel(X, K = K, type = "ML"))
+    cor_ML <- cov2cor(covFactorModel(X, K = K, type = "Stat-ML"))
     t2 <- Sys.time()
     ML_time <- ML_time + as.numeric(t2 - t1)
     err_ML <- err_ML + norm(Sigma_cor - cor_ML, "F")^2
@@ -113,9 +113,9 @@ for (T in index_T) {
 res <- cbind(err_ML_vs_T, err_factanal_vs_T, err_stat_diag_vs_T, err_scm_vs_T)
 PRIAL <- 100*(1 - apply(res, 2, "/", res[, 4]))
 time <- cbind(ML_time_vs_T, factanal_time_vs_T, stat_diag_time_vs_T, scm_time_vs_T)
-colnames(PRIAL) <- c("covFactorModel() ML" ,"factanal()", "covFactorModel() stat", "SCM")
+colnames(PRIAL) <- c("covFactorModel() Stat-ML" ,"factanal()", "covFactorModel() Stat-PCA", "SCM")
 rownames(PRIAL) <- paste0("T/N=", index_T/N)
-colnames(time) <- c("covFactorModel() ML" ,"factanal()", "covFactorModel() stat", "SCM")
+colnames(time) <- c("covFactorModel() Stat-ML" ,"factanal()", "covFactorModel() Stat-PCA", "SCM")
 rownames(time) <- paste0("T/N=", index_T/N)
 print(res)
 print(time)
