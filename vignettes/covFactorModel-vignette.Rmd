@@ -78,17 +78,17 @@ Then, we use the two packages to compute the covariance matrix estimation (the c
 ```{r, message = FALSE, warning = FALSE, cache = TRUE}
 library(covFactorModel)
 # compare cov by macroeconomic factor model
-my_cov_macro <- covFactorModel(assets_xts, type = "M", econ_fact = factor_xts)
+my_cov_macro <- covFactorModel(assets_xts, type = "Macro", econ_fact = factor_xts)
 cov_macro <- MacroFactor.Cov(assets, factor)
 norm(cov_macro - my_cov_macro, "F")
 
 # compare cov by BARRA Industry factor model
-my_cov_BARRA <- covFactorModel(assets_xts, type = "B", stock_sector_info = sector_info)
+my_cov_BARRA <- covFactorModel(assets_xts, type = "Barra", stock_sector_info = sector_info)
 cov_BARRA <- FundamentalFactor.Cov(assets, exposure = beta, method = "OLS")
 norm(cov_BARRA - my_cov_BARRA, "F")
 
 # compare cov by statistical factor model
-my_cov_stat <- covFactorModel(assets_xts, type = "S", K = 3)
+my_cov_stat <- covFactorModel(assets_xts, type = "Stat-PCA", K = 3)
 cov_stat <- StatFactor.Cov(assets, 3)
 norm(cov_stat - my_cov_stat, "F")
 ```
@@ -142,7 +142,7 @@ N <- ncol(X)  # number of stocks
 T <- nrow(X)  # number of days
 
 # use package to build macroeconomic factor model
-macro_econ_model <- factorModel(X, type = "M", econ_fact = f)
+macro_econ_model <- factorModel(X, type = "Macro", econ_fact = f)
 
 # sanity check
 X_ <- with(macro_econ_model, 
@@ -160,7 +160,7 @@ In finance, this is also known as capital asset pricing model (CAPM) assuming th
 
 Next, we build a _BARRA industry factor model:_
 ```{r}
-barra_model <- factorModel(X, type = "B")
+barra_model <- factorModel(X, type = "Barra")
 print(barra_model$beta)
 
 # sanity check
@@ -219,7 +219,7 @@ Then, we simply use function `covFactorModel()` (by default it uses a diagonal s
 ```{r, fig.width = 7, fig.height = 5}
 # generate synthetic data
 set.seed(234)
-err_scm <- err_macroecon <- err_barra <- err_stat <- c()
+err_scm <- err_macroecon <- err_barra <- err_statPCA <- err_statML <- c()
 index_T <- N*seq(10)
 for (T in index_T) {
   # generate factors and observed data matrix
@@ -231,22 +231,27 @@ for (T in index_T) {
   err_scm <- c(err_scm, norm(Sigma - cov(X), "F")^2)
   
   # macroeconomic factor model
-  cov_macroecon <- covFactorModel(X, type = "M", econ_fact = factors)
+  cov_macroecon <- covFactorModel(X, type = "Macro", econ_fact = factors)
   err_macroecon <- c(err_macroecon, norm(Sigma - cov_macroecon, "F")^2)
   
   # BARRA factor model
-  cov_barra <- covFactorModel(X, type = "B", stock_sector_info = stock_sector_info)
+  cov_barra <- covFactorModel(X, type = "Barra", stock_sector_info = stock_sector_info)
   err_barra <- c(err_barra, norm(Sigma - cov_barra, "F")^2)
   
-  # statistical factor model with diagonal Psi (default)
-  cov_stat <- covFactorModel(X, K = num_sectors)
-  err_stat <- c(err_stat, norm(Sigma - cov_stat, "F")^2)
+  # statistical factor model by PCA with diagonal Psi (default)
+  cov_statPCA <- covFactorModel(X, type = "Stat-PCA", K = num_sectors)
+  err_statPCA <- c(err_statPCA, norm(Sigma - cov_statPCA, "F")^2)
+  
+  # statistical factor model by ML with diagonal Psi (default)
+  cov_statML <- covFactorModel(X, type = "Stat-ML", K = num_sectors)
+  err_statML <- c(err_statML, norm(Sigma - cov_statML, "F")^2)
 }
-res <- cbind("SCM"           = err_scm,
-             "macroeconomic" = err_macroecon,
-             "BARRA"         = err_barra,
-             "statistical"   = err_stat)
-colors <- c("blue", "green4", "darkmagenta", "red3")
+res <- cbind("SCM"               = err_scm,
+             "macroeconomic"     = err_macroecon,
+             "BARRA"             = err_barra,
+             "statistical-PCA"   = err_statPCA,
+             "statistical-ML"    = err_statML)
+colors <- c("blue", "green4", "darkmagenta", "red3", "gray0")
 matplot(index_T/N, res,
         xlab = "T/N", ylab = "SE",
         main = "SE using different factor models",
@@ -322,23 +327,32 @@ where $\mathbf{x}_{t} = [x_{1,t},\dots,x_{N,t}]^T$ and $\mathbf{f}_{t} = [f_{1,t
 $$\underset{\mathbf{f}_{t}}{\mathsf{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Vert\mathbf{x}_{t}-\mathbf{B}\mathbf{f}_{t}\Vert_{2}^{2}$$
 The solution is $\hat{\mathbf{f}}_{t}=(\mathbf{B}^{T}\mathbf{B})^{-1}\mathbf{B}^{T}\mathbf{x}_{t}, \; t=1,\dots,T$ and the residual can be simply calculated as $[\hat{\epsilon}_{1,t},\dots,\hat{\epsilon}_{N,t}]^{T}=\mathbf{x}_{t}-\mathbf{B}\hat{\mathbf{f}}_{t}$.
 
-### Statistical factor model (aka implicit factor model)
- The statistical factor model holds the assumption that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. We use the following iterative method to estimate the parameters [see [@tsay2005analysis] for details]:
+### Statistical factor model by PCA (aka implicit factor model)
+ The statistical factor model by PCA holds the assumption that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. Therefore, we can formulate the problem as:
+$$
+\underset{\boldsymbol{\alpha},\mathbf{B},\mathbf{C},\mathbf{d}}{\textrm{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Vert\mathbf{x}_{t}-\boldsymbol{\alpha}-\mathbf{B}\left(\mathbf{C}^{T}\mathbf{x}_{t}+\mathbf{d}\right)\Vert_{2}^{2}
+$$
+which is proven equivalent to principal component analysis (PCA) and thus solved by:
+$$
+\hat{\boldsymbol{\alpha}}=\frac{1}{T}\sum_{t=1}^{T}\mathbf{x}_{t},\quad\hat{\mathbf{B}}=\hat{\mathbf{C}}=\hat{\boldsymbol{\Gamma}}^{(K)},\quad\hat{\mathbf{d}}=-\hat{\mathbf{C}}^{T}\hat{\boldsymbol{\alpha}}
+$$
+where $\hat{\boldsymbol{\Gamma}}^{(K)} \in \mathbb{R}^{N\times K}$ with $k$-th column being the $k$-th largest eigenvector of sample covariance matrix $\hat{\mathbf{S}}$. Another choice is the refine the method with the following iterative approach [see [@tsay2005analysis] for details]:
 
 > **Algorithm 1**    
-  1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and 
-     its eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
+  1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
   2. Set index $s=1$   
-  3. Compute $\hat{\mathbf{B}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s)} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}_{(s)}$, $\hat{\boldsymbol{\Psi}}_{(s)} = \textrm{struct}(\hat{\boldsymbol{\Sigma}} - \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)})$, $\hat{\boldsymbol{\Sigma}}_{(s)} = \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)} + \hat{\boldsymbol{\Psi}}_{(s)}$      
+  3. Compute $\hat{\mathbf{B}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s)}^{(K)} \hat{\boldsymbol{\Lambda}}^{(K)\frac{1}{2}}_{(s)}$, $\hat{\boldsymbol{\Psi}}_{(s)} = \textrm{struct}(\hat{\boldsymbol{\Sigma}} - \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)})$, $\hat{\boldsymbol{\Sigma}}_{(s)} = \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)} + \hat{\boldsymbol{\Psi}}_{(s)}$      
   4. Update EVD: $\hat{\boldsymbol{\Sigma}} - \hat{\boldsymbol{\Psi}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s+1)} \hat{\boldsymbol{\Lambda}}_{(s+1)} \hat{\boldsymbol{\Gamma}}^{T}_{(s+1)}$ and $s \gets s+1$   
   5. Repeat Steps 3-4 until convergence.   
   6. Return $(\hat{\mathbf{B}}_{(s)}, \hat{\boldsymbol{\Psi}}_{(s)}, \hat{\boldsymbol{\Sigma}}_{(s)})$   
         
 where $\textrm{struct}()$ is to impose certain structure on $\hat{\boldsymbol{\Psi}}_{(s)}$, one typical option is diagonal. After the algorithm is done, we can calculate $\hat{\boldsymbol{\alpha}} = \frac{1}{T} \sum_{t=1}^{T} \mathbf{x}_{t}$ and build the statistical factor model using the algorithm output:
-$$ \hat{\mathbf{B}} = \hat{\boldsymbol{\Gamma}} \hat{\boldsymbol{\Lambda}}^{\frac{1}{2}}, \quad \hat{\mathbf{f}}_{t} = \hat{\boldsymbol{\Lambda}}^{-\frac{1}{2}} \hat{\boldsymbol{\Gamma}}^{T} (\mathbf{x}_{t} - \hat{\boldsymbol{\alpha}}), \quad \hat{\boldsymbol{\epsilon}}_{t} = \mathbf{x}_{t} - \hat{\boldsymbol{\alpha}} - \hat{\mathbf{B}} \hat{\mathbf{f}}_{t}$$
+$$ \hat{\mathbf{B}} = \hat{\boldsymbol{\Gamma}}^{(K)} \hat{\boldsymbol{\Lambda}}^{(K)^{\frac{1}{2}}}, \quad \hat{\mathbf{f}}_{t} = \hat{\boldsymbol{\Lambda}}^{(K)^{-\frac{1}{2}}} \hat{\boldsymbol{\Gamma}}^{(K)^{T}} (\mathbf{x}_{t} - \hat{\boldsymbol{\alpha}}), \quad \hat{\boldsymbol{\epsilon}}_{t} = \mathbf{x}_{t} - \hat{\boldsymbol{\alpha}} - \hat{\mathbf{B}} \hat{\mathbf{f}}_{t}$$
+(Note that the Algorithm 1 is equivalent to previous method when only one iteration is performed.)
 
 ## `covFactorModel()`: Covariance matrix estimation via factor models
-The function `covFactorModel()` estimates a covariance matrix based on the factor model decomposition. As mentioned above, the factor model can be expressed as:
+### Through further dealing with `factorModel()` results
+The first approach is based on the factor model decomposition. As mentioned above, the factor model can be expressed as:
 $$\mathbf{x}_{t} = \boldsymbol{\alpha} + \mathbf{B} \mathbf{f}_{t} + \boldsymbol{\epsilon}_{t},  \; t = 1, \dots, T$$
 Assuming $\{\mathbf{f}_{t}\}$ and $\{\boldsymbol{\epsilon}_{t}\}$ are uncorrelated, the covariance matrix $\boldsymbol{\Sigma}$ can be written as
 $$\boldsymbol{\Sigma} = \mathbf{B} \boldsymbol{\Sigma}_{\mathbf{f}} \mathbf{B}^{T} + \boldsymbol{\Psi}$$
@@ -346,8 +360,18 @@ where $\boldsymbol{\Sigma}_{\mathbf{f}} = \mathsf{Cov}[\mathbf{x}_{t}]$ and $\bo
 $$\hat{\boldsymbol{\Sigma}} = \hat{\mathbf{B}} \hat{\boldsymbol{\Sigma}}_{\mathbf{f}} \hat{\mathbf{B}}^{T} + \hat{\boldsymbol{\Psi}}$$
 where $\hat{\boldsymbol{\Sigma}}_{\mathbf{f}}$ and $\hat{\boldsymbol{\Psi}}$ are the sample covariance matrix of $\{\mathbf{\mathbf{f}}_{t}\}$ and $\{\boldsymbol{\epsilon}_{t}\}$. Besides,  the $\boldsymbol{\Psi}$ is expected to follow a special structure, i.e.,
 $$\hat{\boldsymbol{\Sigma}} = \hat{\mathbf{B}} \hat{\boldsymbol{\Sigma}}_{\mathbf{f}} \hat{\mathbf{B}}^{T} + \textrm{struct}\{ \hat{\boldsymbol{\Psi}} \}.$$
-In the statistical factor model of function `factorModel()`, the estimate $\hat{\boldsymbol{\Sigma}}$ is actually available when building the model. Therefore the algorithm output $\hat{\boldsymbol{\Sigma}}_{(s)}$ is directly extracted as the covariance matrix estimation.
+In the statistical factor model by PCA of function `factorModel()`, the estimate $\hat{\boldsymbol{\Sigma}}$ is actually available when building the model. Therefore the algorithm output $\hat{\boldsymbol{\Sigma}}_{(s)}$ is directly extracted as the covariance matrix estimation.
 
+### Through maximum likelihood estimation 
+Another popular covariance matrix estimation through statistical factor model is maximum likelihood estimation, which can be formulated as:
+$$
+\begin{aligned}\underset{\mathbf{B},\boldsymbol{\Psi}}{\mathsf{minimize}}\,\,\, & \,\,\,-\log\lvert\boldsymbol{\Sigma}^{-1}\rvert+\textrm{Tr}\left(\boldsymbol{\Sigma}^{-1}\hat{\mathbf{S}}\right)\\
+\mathsf{subject\,\,to} & \,\,\,\boldsymbol{\Sigma}=\mathbf{B}\mathbf{B}^{T}+\boldsymbol{\Psi}\\
+ & \,\,\,\mathbf{B}\in\mathbb{R}^{N\times K}\\
+ & \,\,\,\boldsymbol{\Psi}=\textrm{diag}\left(\psi_{1},\dots,\psi_{p}\right)\ge\epsilon\mathbf{I}
+\end{aligned}
+$$
+We implement an efficient algorithm [@khamaru2018computation] to slove above problem.
 
 # References {-}
 \setlength{\parindent}{-0.2in}
