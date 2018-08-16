@@ -74,7 +74,7 @@ sector_info <- c(rep(1, 4),
                  rep(2, 2),
                  rep(3, 4))
 ```
-Then, we use the two packages to compute the covariance matrix estimation (the comparison of execution time is ignored here for their implements are almost same) via three factor models and compare the results:
+Then, we use the two packages to compute the covariance matrix estimation (the comparison of execution time is ignored here because their implementation are almost same) via three factor models and compare the results:
 ```{r, message = FALSE, warning = FALSE, cache = TRUE}
 library(covFactorModel)
 # compare cov by macroeconomic factor model
@@ -94,10 +94,13 @@ norm(cov_stat - my_cov_stat, "F")
 ```
 It is clear that the covariance matrix estimation results from the packages `covFactorModel` and `FinCovRegularization` are exactly the same. Note that `covFactorModel` allows the user to choose different structures on residual covariance matrix (i.e., scaled identity, diagonal, block diagonal, and full), while `FinCovRegularization` assumes it to be diagonal only. (When use the BARRA Industry factor model, `covFactorModel` requires sector information in vector form or nothing if column names of data matrix is contained in the in-built database `data(stock_sector_database)`, while `FinCovRegularization` forces user to pass the sector information in matrix form.)
 
-Next, we compare the performance of `covFactorModel()` and `stats::factanal()` in covariance matrix estimation. From the description of `factanal()` (use `?factanal` for details), it performs a maximum-likelihood factor analysis on a covariance matrix or data matrix and is in essence a model for the correlation matrix. We compare the correlation matrix estimation in terms of PRIAL (see next section for details) and running time. Since `covFactorModel()` returns the covariance matrix, we use `cov2cor()` to obtain the correlation matrix. As shown in Figure \@ref(fig:package-compare), `covFactorModel()` can achieve a similar estimation performance but is much quicker compared with `factanal()`.
+Next, we compare the performance of `covFactorModel()` and `stats::factanal()` in covariance matrix estimation. From the description of `factanal()` (use `?factanal` for details), it performs a maximum-likelihood factor analysis on a covariance matrix or data matrix and is in essence a model for the correlation matrix. We compare the correlation matrix estimation in terms of PRIAL (see next section for details) and running time. Since `covFactorModel()` returns the covariance matrix, we use `cov2cor()` to obtain the correlation matrix. As shown in Figure \@ref(fig:package-compare), `covFactorModel()` can achieve a similar estimation performance but is much faster compared with `factanal()`.
 ```{r package-compare, echo = FALSE, out.width = "100%", fig.cap = "Average PRIAL and running time."}
 knitr::include_graphics("figures/package_compare.png", auto_pdf = TRUE)
 ```
+
+Summarizing, our package `covFactorModel` performs the same as the package `FinCovRegularization` in terms of covariance matrix estimation and computational speed for the three cases of Macroeconomic factor model, BARRA Industry factor model, and statistical PCA factor model (although `covFactorModel` allows for more types of structure in the residual covariance matrix). In addtition, our package `covFactorModel` can implement the statistical ML factor model with the same performance as the function `stats::factanal()` but with a much faster computational speed (one order of magnitude faster).
+
 
 
 # Usage of the package
@@ -327,16 +330,18 @@ where $\mathbf{x}_{t} = [x_{1,t},\dots,x_{N,t}]^T$ and $\mathbf{f}_{t} = [f_{1,t
 $$\underset{\mathbf{f}_{t}}{\mathsf{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Vert\mathbf{x}_{t}-\mathbf{B}\mathbf{f}_{t}\Vert_{2}^{2}$$
 The solution is $\hat{\mathbf{f}}_{t}=(\mathbf{B}^{T}\mathbf{B})^{-1}\mathbf{B}^{T}\mathbf{x}_{t}, \; t=1,\dots,T$ and the residual can be simply calculated as $[\hat{\epsilon}_{1,t},\dots,\hat{\epsilon}_{N,t}]^{T}=\mathbf{x}_{t}-\mathbf{B}\hat{\mathbf{f}}_{t}$.
 
-### Statistical factor model by PCA (aka implicit factor model)
- The statistical factor model by PCA holds the assumption that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. Therefore, we can formulate the problem as:
+### Statistical factor model via PCA (aka implicit factor model)
+ The statistical factor model via Principal Component Analysis (PCA) assumes that $\mathbf{f}_{t}$ is an affine transformation of $\mathbf{x}_{t}$, i.e., $\mathbf{f}_{t}=\mathbf{d}+\mathbf{C}^{T}\mathbf{x}_{t}$, where $\mathbf{d}\in\mathbb{R}^{K}$ and $\mathbf{C}\in\mathbb{R}^{N\times K}$ are parameters to be estimated. Therefore, we can formulate the problem as
 $$
 \underset{\boldsymbol{\alpha},\mathbf{B},\mathbf{C},\mathbf{d}}{\textrm{minimize}}\quad\frac{1}{T}\sum_{t=1}^{T}\Vert\mathbf{x}_{t}-\boldsymbol{\alpha}-\mathbf{B}\left(\mathbf{C}^{T}\mathbf{x}_{t}+\mathbf{d}\right)\Vert_{2}^{2}
 $$
-which is proven equivalent to principal component analysis (PCA) and thus solved by:
+which is proven equivalent to PCA and thus solved by
 $$
 \hat{\boldsymbol{\alpha}}=\frac{1}{T}\sum_{t=1}^{T}\mathbf{x}_{t},\quad\hat{\mathbf{B}}=\hat{\mathbf{C}}=\hat{\boldsymbol{\Gamma}}^{(K)},\quad\hat{\mathbf{d}}=-\hat{\mathbf{C}}^{T}\hat{\boldsymbol{\alpha}}
 $$
-where $\hat{\boldsymbol{\Gamma}}^{(K)} \in \mathbb{R}^{N\times K}$ with $k$-th column being the $k$-th largest eigenvector of sample covariance matrix $\hat{\mathbf{S}}$. Another choice is the refine the method with the following iterative approach [see [@tsay2005analysis] for details]:
+where $\hat{\boldsymbol{\Gamma}}^{(K)} \in \mathbb{R}^{N\times K}$ with $k$-th column being the $k$-th largest eigenvector of sample covariance matrix $\hat{\mathbf{S}}$. The desired structure on the residual covariance matrix is then enforced.
+
+A further refinement of the above PCA method is based on an iterative approach where each iteration performs an improved PCA (the method above corresponds to just one iteration) [see [@tsay2005analysis] for details]:
 
 > **Algorithm 1**    
   1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
@@ -351,7 +356,7 @@ $$ \hat{\mathbf{B}} = \hat{\boldsymbol{\Gamma}}^{(K)} \hat{\boldsymbol{\Lambda}}
 (Note that the Algorithm 1 is equivalent to previous method when only one iteration is performed.)
 
 ## `covFactorModel()`: Covariance matrix estimation via factor models
-### Through further dealing with `factorModel()` results
+### Through the factor decomposition obtained by the function `factorModel()`
 The first approach is based on the factor model decomposition. As mentioned above, the factor model can be expressed as:
 $$\mathbf{x}_{t} = \boldsymbol{\alpha} + \mathbf{B} \mathbf{f}_{t} + \boldsymbol{\epsilon}_{t},  \; t = 1, \dots, T$$
 Assuming $\{\mathbf{f}_{t}\}$ and $\{\boldsymbol{\epsilon}_{t}\}$ are uncorrelated, the covariance matrix $\boldsymbol{\Sigma}$ can be written as
@@ -362,8 +367,8 @@ where $\hat{\boldsymbol{\Sigma}}_{\mathbf{f}}$ and $\hat{\boldsymbol{\Psi}}$ are
 $$\hat{\boldsymbol{\Sigma}} = \hat{\mathbf{B}} \hat{\boldsymbol{\Sigma}}_{\mathbf{f}} \hat{\mathbf{B}}^{T} + \textrm{struct}\{ \hat{\boldsymbol{\Psi}} \}.$$
 In the statistical factor model by PCA of function `factorModel()`, the estimate $\hat{\boldsymbol{\Sigma}}$ is actually available when building the model. Therefore the algorithm output $\hat{\boldsymbol{\Sigma}}_{(s)}$ is directly extracted as the covariance matrix estimation.
 
-### Through maximum likelihood estimation 
-Another popular covariance matrix estimation through statistical factor model is maximum likelihood estimation, which can be formulated as:
+### Through maximum likelihood (ML) estimation under the Gaussian assumption
+Another popular statistical factor model covariance matrix estimation is based on maximum likelihood (ML) estimation. Under the Gaussian assumption on the returns, it can be formulated as
 $$
 \begin{aligned}\underset{\mathbf{B},\boldsymbol{\Psi}}{\mathsf{minimize}}\,\,\, & \,\,\,-\log\lvert\boldsymbol{\Sigma}^{-1}\rvert+\textrm{Tr}\left(\boldsymbol{\Sigma}^{-1}\hat{\mathbf{S}}\right)\\
 \mathsf{subject\,\,to} & \,\,\,\boldsymbol{\Sigma}=\mathbf{B}\mathbf{B}^{T}+\boldsymbol{\Psi}\\
@@ -371,7 +376,7 @@ $$
  & \,\,\,\boldsymbol{\Psi}=\textrm{diag}\left(\psi_{1},\dots,\psi_{p}\right)\ge\epsilon\mathbf{I}
 \end{aligned}
 $$
-We implement an efficient algorithm [@khamaru2018computation] to slove above problem.
+To solve this problem, we implement a very efficient algorithm from [@khamaru2018computation], which is much faster than the one used in `stats::factanal()`.
 
 # References {-}
 \setlength{\parindent}{-0.2in}
