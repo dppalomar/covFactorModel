@@ -263,8 +263,8 @@ legend("topright", inset = 0.01, legend = colnames(res), pch = 20, col = colors)
 ```
 
 Obviously, using factor models for covariance matrix estimation definitely helps (note that BARRA is obviously the best simply because the synthetic data was generated according to the BARRA model). In order to show how well the estimated covariance matrices do compared to the sample covariance matrix (benchmark), the estimation error can also be evaluated in terms of PRIAL (PeRcentage Improvement in Average Loss):
-$$\mathsf{PRIAL} = 100\times \frac{\lVert \boldsymbol{\Sigma}_{\mathsf{scm}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2} - \lVert \hat{\boldsymbol{\Sigma}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2}}{\lVert \boldsymbol{\Sigma}_{\mathsf{scm}} - \boldsymbol{\Sigma}_{\mathsf{true}} \rVert _{F}^{2}}$$
-which goes to 0 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the sample covariance matrix $\boldsymbol{\Sigma}_{\sf scm}$ and goes to 100 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the true covariance matrix $\boldsymbol{\Sigma}_{\sf true}$.
+$$\mathsf{PRIAL}=100\times\frac{\lVert\hat{\mathbf{S}}-\boldsymbol{\Sigma}_{\mathsf{true}}\rVert_{F}^{2}-\lVert\hat{\boldsymbol{\Sigma}}-\boldsymbol{\Sigma}_{\mathsf{true}}\rVert_{F}^{2}}{\lVert\hat{\mathbf{S}}-\boldsymbol{\Sigma}_{\mathsf{true}}\rVert_{F}^{2}}$$
+which goes to 0 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the sample covariance matrix $\hat{\mathbf{S}}$ and goes to 100 when the estimation $\hat{\boldsymbol{\Sigma}}$ tends to the true covariance matrix $\boldsymbol{\Sigma}_{\sf true}$.
 
 ```{r, fig.width = 7, fig.height = 5}
 PRIAL <- 100*(1 - apply(res, 2, "/", res[, 1]))
@@ -341,10 +341,10 @@ $$
 $$
 where $\hat{\boldsymbol{\Gamma}}^{(K)} \in \mathbb{R}^{N\times K}$ with $k$-th column being the $k$-th largest eigenvector of sample covariance matrix $\hat{\mathbf{S}}$. The desired structure on the residual covariance matrix is then enforced.
 
-A further refinement of the above PCA method is based on an iterative approach where each iteration performs an improved PCA (the method above corresponds to just one iteration) [see [@tsay2005analysis] for details]:
+A further refinement of the above PCA method is based on an iterative approach where each iteration performs an improved PCA (the method above corresponds to just one iteration) [see [@MIT_opencourse_factormodel] for details]:
 
 > **Algorithm 1**    
-  1. Calculate sample covariance matrix $\hat{\boldsymbol{\Sigma}}$ and eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
+  1. Calculate sample covariance matrix $\hat{\mathbf{S}}$ and eigen-decomposition (EVD): $\hat{\boldsymbol{\Gamma}}_{1} \hat{\boldsymbol{\Lambda}}_{1} \hat{\boldsymbol{\Gamma}}^{T}_{1}$    
   2. Set index $s=1$   
   3. Compute $\hat{\mathbf{B}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s)}^{(K)} \hat{\boldsymbol{\Lambda}}^{(K)\frac{1}{2}}_{(s)}$, $\hat{\boldsymbol{\Psi}}_{(s)} = \textrm{struct}(\hat{\boldsymbol{\Sigma}} - \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)})$, $\hat{\boldsymbol{\Sigma}}_{(s)} = \hat{\mathbf{B}}_{(s)} \hat{\mathbf{B}}^{T}_{(s)} + \hat{\boldsymbol{\Psi}}_{(s)}$      
   4. Update EVD: $\hat{\boldsymbol{\Sigma}} - \hat{\boldsymbol{\Psi}}_{(s)} = \hat{\boldsymbol{\Gamma}}_{(s+1)} \hat{\boldsymbol{\Lambda}}_{(s+1)} \hat{\boldsymbol{\Gamma}}^{T}_{(s+1)}$ and $s \gets s+1$   
@@ -377,6 +377,161 @@ $$
 \end{aligned}
 $$
 To solve this problem, we implement a very efficient algorithm from [@khamaru2018computation], which is much faster than the one used in `stats::factanal()`.
+
+# Macroeconomic factor model with sparse loading matrix
+We impose no structure constraint on loading matrix $\mathbf{B}$ till now, which would weaken its interpretability or  incur the over-fitting problem. One convenient approach is to assume $\mathbf{B}$ is sparse, i.e., add regularization term to loss function. Recall the macroeconomic factor model estimation problem in compact form is
+$$
+\begin{aligned}\underset{\boldsymbol{\alpha},\mathbf{B}}{\mathsf{minimize}} & \quad\frac{1}{2T}\lVert\mathbf{X}-\mathbf{1}\boldsymbol{\alpha}^{T}-\mathbf{F}\mathbf{B}^{T}\rVert_{F}^{2}\end{aligned}
+$$
+In this Section, we show how to estimate loading matrix $\mathbf{B}$ of macroeconomic factor model with sparsity assumption. 
+
+## Element-wise sparse
+One of the most popular and convenient method is to add penalty element-wisely to $\mathbf{B}$, i.e.,
+$$
+\begin{aligned}\underset{\boldsymbol{\alpha},\mathbf{B}}{\mathsf{minimize}} & \quad\frac{1}{2T}\lVert\mathbf{X}-\mathbf{1}\boldsymbol{\alpha}^{T}-\mathbf{F}\mathbf{B}^{T}\rVert_{F}^{2}\end{aligned} +  \sum_{(i,j)} p \left( B_{i,j} \right)
+$$
+where $p(\theta)$ is a penalty function with some typical choices, e.g., minimax concave penalty (MCP), smoothly clipped absolute deviation (SCAD) and lasso. The three penalty functions are defined by:
+$$p_{MCP}\left(\theta\right)=\begin{cases}
+\lambda\lvert\theta\rvert-\frac{\theta^{2}}{2\gamma} & \lvert\theta\rvert\le\gamma\lambda\\
+\frac{1}{2}\gamma\lambda^{2} & \lvert\theta\rvert\le\gamma\lambda
+\end{cases}
+\quad
+P_{SCAD}\left(\theta\right)=\begin{cases}
+\lambda\lvert\theta\rvert & \lvert\theta\rvert\le\lambda\\
+\frac{\gamma\lambda\lvert\theta\rvert-0.5\left(\theta^{2}+\lambda^{2}\right)}{\gamma-1} & \lambda<\lvert\theta\rvert\le\gamma\lambda\\
+\frac{\lambda^{2}\left(\gamma^{2}-1\right)}{2\left(\gamma-1\right)} & \lvert\theta\rvert>\gamma\lambda
+\end{cases}
+\quad
+p_{lasso}\left(\theta\right)=\lambda\lvert\theta\rvert
+$$
+
+As each row of $\mathbf{B}$ is decoupled, the above problem can be decomposed into $N$ sub-problems with each be follows
+$$
+\begin{aligned}\underset{\alpha_{i},\boldsymbol{\beta}_{i}}{\mathsf{minimize}} & \quad\frac{1}{2T}\lVert\mathbf{x}_{i}-\mathbf{1}\alpha_{i}-\mathbf{F}\boldsymbol{\beta}_{i}\rVert_{2}^{2}\end{aligned} + \sum_{j}p\left(B_{i,j}\right)
+$$
+
+We found a package `ncvreg` which is very powerful to solve above problem with three mentioned penalty function. For matrix case, we can simply call it $N$ times and combine the final results. The example codes are given below as
+```{r, message = FALSE, warning = FALSE}
+library(ncvreg)
+library(MASS)
+set.seed(123)
+
+# implement the function using package ncvreg
+linreg_ele_sparse <- function(Factor, X, penalty = "lasso", lambda = 1, gamma = 4) {
+  N <- ncol(X)
+  K <- ncol(Factor)
+  B <- matrix(0, N, K)
+  alpha <- matrix(0, N, 1)
+  for (i in 1:N) {
+    tmp <- ncvreg(Factor, X[, i], family = "gaussian", 
+                  penalty = penalty, lambda = lambda, gamma = gamma)$beta
+    B[i, ] <- as.vector(tmp[-1])
+    alpha[i] <- tmp[1]
+  }
+  return(list(
+    "B" = B,
+    "alpha" = alpha
+  ))
+}
+
+# compare the real B with estimated version by three type of penalty function
+# generate factor structure data with element-sparse B
+T <- 50
+N <- 10
+K <- 3
+lambda <- 0.01
+Factor <- matrix(rnorm(T*K), T, K)
+Factor <- mvrnorm(n = T, mu = rep(0, K), Sigma = diag(K))
+B_real <- matrix(rnorm(K*N), N, K)
+B_real[abs(B_real) < 0.5] <- 0
+X <- Factor %*% t(B_real) + 0.01 * matrix(rnorm(T*N), T, N)
+
+```
+Let's do the least-square estimation without penalty term and see the results
+```{r, message = FALSE, warning = FALSE}
+fit_nopenalty <- linreg_ele_sparse(Factor, X, penalty = "lasso", lambda = 0)
+
+# show real B and its non-penalty estimation
+print(B_real)
+print(fit_nopenalty$B)
+```
+It is significant that all the elements in estimated $\mathbf{B}$ are nonzero. Now let us estimate it again with penalty
+```{r, message = FALSE, warning = FALSE}
+fit_lasso <- linreg_ele_sparse(Factor, X, penalty = "lasso", lambda = 0.01)
+fit_MCP <-   linreg_ele_sparse(Factor, X, penalty = "MCP", lambda = 0.01, gamma = 3)
+fit_SCAD <-  linreg_ele_sparse(Factor, X, penalty = "SCAD", lambda = 0.01, gamma = 3.7)
+
+# show result
+print(fit_lasso$B)
+print(fit_MCP$B)
+print(fit_SCAD$B)
+```
+Obviously, the three estimations all give us a element-wise sparse estimation to $\mathbf{B}$.
+
+## Column-wise sparsity
+Sometimes, we may want the $\mathbf{B}$ be not only element-wise sparse, but also column-wise sparse. As the macroeconomic factors can be collected from many different sources like some public national statistical data or bought from the agencies, we hope some useless or low-impact factors could be identified via the building of factor model. If a column of estimated $\mathbf{B}$ is all zero, then the corresponding factor can be intuitively seen as useless or low-impact. We introduce here two methods to help get a column-wise sparse estimation for $\mathbf{B}$.
+
+### Group Lasso
+Basically, the group lasso problem is
+$$
+\begin{aligned}\underset{\boldsymbol{\beta}}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\mathbf{x}-\sum_{l}^{m}\mathbf{F}^{\left(l\right)}\boldsymbol{\beta}^{\left(l\right)}\Bigg\rVert+\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\boldsymbol{\beta}^{\left(l\right)}\big\rVert_{2}\end{aligned}
+$$
+where $\mathbf{F}^{\left(l\right)}$ is the submatrix of $\mathbf{F}$ with columns corresponding to the factors in group $l$, $\boldsymbol{\beta}^{\left(l\right)}$ the coefficient vector of that group and $p_{l}$ is the length of $\boldsymbol{\beta}^{\left(l\right)}$. We can reformulate our macroeconomic factor model estimation problem by using group lasso
+$$
+\begin{aligned}\underset{\textrm{vec}\left(\mathbf{B}^{T}\right)}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\textrm{vec}\left(\mathbf{X}\right)-\left(\mathbf{I}\otimes\mathbf{F}\right)\textrm{vec}\left(\mathbf{B}^{T}\right)\Bigg\rVert+\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\textrm{vec}\left(\mathbf{B}^{T}\right)^{\left(l\right)}\big\rVert_{2}\end{aligned}
+$$
+As our expectation, that $\mathbf{B}$ should be column-wise sparse, we cam simply pass the information that $i$-th and $\left(i+K\right)$-th factors are of same group. We found a package `SGL` which fits a linear regression model of lasso and group lasso regression, i.e.,
+$$
+\begin{aligned}\underset{\textrm{vec}\left(\mathbf{B}^{T}\right)}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\textrm{vec}\left(\mathbf{X}\right)-\left(\mathbf{I}\otimes\mathbf{F}\right)\textrm{vec}\left(\mathbf{B}^{T}\right)\Bigg\rVert+\left(1-\alpha\right)\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\textrm{vec}\left(\mathbf{B}^{T}\right)^{\left(l\right)}\big\rVert_{2}+\alpha\lambda\big\lVert\textrm{vec}\left(\mathbf{B}^{T}\right)^{\left(l\right)}\big\rVert_{1}\end{aligned}
+$$
+where $\alpha$ is the turning parameter for a convex combination of the lasso and group lasso penalties. In our case, we realize what we want by the following R codes
+```{r}
+set.seed(123)
+library(SGL)
+
+# implement the function with package SGL
+linreg_row_sparse <- function(Factor, X, lambda = 0.01, alpha = 0.85) {
+  N <- ncol(X)
+  K <- ncol(Factor)
+  index <- rep(1:K, N)
+  data <- list(x = diag(N) %x% Factor, y = as.vector(X))
+  beta <- SGL(data, index, type = "linear", lambdas = lambda / N, alpha = alpha,
+              thresh = 1e-5, standardize = FALSE)$beta
+  B <- t(matrix(beta, K, N, byrow = FALSE))
+  return(B)
+}
+```
+
+Then, we generate data with some factors only influencing one among $N$ stocks, i.e., these factors are low-impact.
+```{r}
+n_lowimp <- 4
+F_ <- mvrnorm(n = T, mu = rep(0, n_lowimp+K), Sigma = diag(n_lowimp+K))
+
+B_ <- cbind(B_real, matrix(0, N, n_lowimp))
+for (i in 1:n_lowimp) {
+  B_[i, K+i] <- 0.5 
+}
+print(B_)
+X_ <- F_ %*% t(B_) + 0.01 * matrix(rnorm(T*N), T, N)
+```
+We then compare the differences between element-wise sparse and row-wise sparse regression.
+```{r}
+B_elesparse <- linreg_ele_sparse(F_, X_, penalty = "lasso", lambda = 0.3)$B
+B_rowsparse <- linreg_row_sparse(F_, X_, lambda = 0.3, alpha = 0.2)
+
+print(B_)
+print(B_elesparse)
+print(B_rowsparse)
+```
+Obviously, we can obtain the row-sparse $\mathbf{B}$ using sparse-group lasso by properly choosing penalty coefficient $\lambda$ and $\alpha$.
+
+### Subset selection
+In machine learning, there exists a classical method called subset selection. We found a function `best.r.sq()` from a recently released R package `mvabund`, which implements a forward selection in a multivariate linear model.
+```{r}
+library(mvabund)
+best.r.sq( X_~F_ )
+```
+Then, we can perform the trivial linear factor model regression with chosen factors.
 
 # References {-}
 \setlength{\parindent}{-0.2in}

@@ -1,0 +1,165 @@
+---
+title: "sparse_linear_regression"
+author: "ZHOU Rui"
+date: "August 6, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 1000)  # output width
+```
+
+# linear regression model
+The linear regression model can be expressed as:
+$$
+\begin{aligned}\underset{\boldsymbol{\beta}}{\mathsf{minimize}} & \quad\frac{1}{T}\lVert\mathbf{y}-\mathbf{X}\boldsymbol{\beta}\rVert_{2}^{2}\end{aligned}
+$$
+where $\mathbf{y}\in\mathbb{R}^{T}$ is the response variables, $\mathbf{X}\in\mathbb{R}^{T\times K}$ is the predictors and $\boldsymbol{\beta}\in\mathbb{R}^{K}$ is a vector of weights. When the response is the multivariate variables, we can also write it into a compact matrix form: 
+$$
+\begin{aligned}\underset{\mathbf{B}}{\mathsf{minimize}} & \quad\frac{1}{T}\lVert\mathbf{Y}-\mathbf{X}\mathbf{B}\rVert_{F}^{2}\end{aligned}
+$$
+where $\mathbf{Y}=\left[\mathbf{y}_{1},\dots,\mathbf{y}_{N}\right]\in\mathbb{R}^{T\times N}$ and $\mathbf{B}=\left[\boldsymbol{\beta}_{1},\dots,\boldsymbol{\beta}_{N}\right]\in\mathbb{R}^{K\times N}$.
+
+## Element-wise sparsity
+To impose the sparsity in $\mathbf{B}$, the usual method is introduce the Element-wise penalty as:
+$$
+\begin{aligned}\underset{\mathbf{B}}{\mathsf{minimize}} & \quad\frac{1}{2T}\lVert\mathbf{Y}-\mathbf{X}\mathbf{B}\rVert_{F}^{2}\end{aligned} +  \sum_{(i,j)} p \left( B_{i,j} \right)
+$$
+where $p(\theta)$ is a penalty function with some typical choices, e.g., minimax concave penalty (MCP), smoothly clipped absolute deviation (SCAD) and lasso. The three penalty functions are defined by:
+$$p_{MCP}\left(\theta\right)=\begin{cases}
+\lambda\lvert\theta\rvert-\frac{\theta^{2}}{2\gamma} & \lvert\theta\rvert\le\gamma\lambda\\
+\frac{1}{2}\gamma\lambda^{2} & \lvert\theta\rvert\le\gamma\lambda
+\end{cases}
+\quad
+P_{SCAD}\left(\theta\right)=\begin{cases}
+\lambda\lvert\theta\rvert & \lvert\theta\rvert\le\lambda\\
+\frac{\gamma\lambda\lvert\theta\rvert-0.5\left(\theta^{2}+\lambda^{2}\right)}{\gamma-1} & \lambda<\lvert\theta\rvert\le\gamma\lambda\\
+\frac{\lambda^{2}\left(\gamma^{2}-1\right)}{2\left(\gamma-1\right)} & \lvert\theta\rvert>\gamma\lambda
+\end{cases}
+\quad
+p_{lasso}\left(\theta\right)=\lambda\lvert\theta\rvert
+$$
+
+The above problem can be decomposed into $N$ sub-problem for the fact that each row of $B$ is decoupled:
+$$
+\begin{aligned}\underset{\boldsymbol{\beta}_{i}}{\mathsf{minimize}} & \quad\frac{1}{2T}\lVert\mathbf{y}_{i}-\mathbf{X}\boldsymbol{\beta}_{i}\rVert_{2}^{2}\end{aligned} +  \sum_{j} p \left( B_{i,j} \right)
+$$
+
+We found a package `ncvreg` which is very powerful to solve above problem with three mentioned penalty function. For matrix case, we just call that function $N$ times:
+```{r, message = FALSE, warning = FALSE}
+library(ncvreg)
+library(MASS)
+set.seed(123)
+# implement the function
+linreg_ele_sparse <- function(X, Y, penalty = "lasso", lambda = 1, gamma = 4) {
+  N <- ncol(Y)
+  K <- ncol(X)
+  B <- matrix(0, K, N)
+  alpha <- matrix(0, N, 1)
+  for (i in 1:N) {
+    tmp <- ncvreg(X, Y[, i], family = "gaussian", 
+                  penalty = penalty, lambda = lambda, gamma = gamma)$beta
+    B[, i] <- tmp[-1]
+    alpha[i] <- tmp[1]
+  }
+  return(list(
+    "B" = B,
+    "alpha" = alpha
+  ))
+}
+
+# test the function
+T <- 50
+N <- 10
+K <- 3
+lambda <- 0.01
+X <- matrix(rnorm(T*K), T, K)
+X <- mvrnorm(n = T, mu = rep(0, K), Sigma = diag(K))
+B_real <- matrix(rnorm(K*N), K, N)
+B_real[abs(B_real) < 0.5] <- 0
+Y <- X %*% B_real + 0.01 * matrix(rnorm(T*N), T, N)
+fit_lasso <- linreg_ele_sparse(X, Y, penalty = "lasso", lambda = 0.01)
+fit_MCP <-   linreg_ele_sparse(X, Y, penalty = "MCP", lambda = 0.01, gamma = 3)
+fit_SCAD <-  linreg_ele_sparse(X, Y, penalty = "SCAD", lambda = 0.01, gamma = 3.7)
+# ncvreg(X, Y[,1], family = "gaussian", penalty = "M", lambda = 0.05, gamma = 100)$beta
+# show result
+print(B_real)
+print(fit_lasso$B)
+print(fit_MCP$B)
+print(fit_SCAD$B)
+```
+
+## Row-wise sparsity
+
+### Group Lasso
+Basically, the group lasso problem is
+$$
+\begin{aligned}\underset{\boldsymbol{\beta}}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\mathbf{y}-\sum_{l}^{m}\mathbf{X}^{\left(l\right)}\boldsymbol{\beta}^{\left(l\right)}\Bigg\rVert+\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\boldsymbol{\beta}^{\left(l\right)}\big\rVert_{2}\end{aligned}
+$$
+where $\mathbf{X}^{\left(l\right)}$ is the sunmatrix of $\mathbf{X}$ with columns corresponding to the predictors in group $l$, $\boldsymbol{\beta}^{\left(l\right)}$ the coefficient vector of that group and $p_{l}$ is the length of $\boldsymbol{\beta}^{\left(l\right)}$. We can reformulate our multivariate linear regression problem by using group lasso to
+$$
+\begin{aligned}\underset{\textrm{vec}\left(\mathbf{B}\right)}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\textrm{vec}\left(\mathbf{Y}\right)-\left(\mathbf{I}\otimes\mathbf{X}\right)\textrm{vec}\left(\mathbf{B}\right)\Bigg\rVert+\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\textrm{vec}\left(\mathbf{B}\right)^{\left(l\right)}\big\rVert_{2}\end{aligned}
+$$
+As our expectation, that $\mathbf{B}$ should be row-wise sparse, we cam simply pass the information that $i$-th and $i+K$-th elements are of same group. We found a package `SGL` which fits a linear regression model of lasso and group lasso regression, i.e.,
+$$
+\begin{aligned}\underset{\textrm{vec}\left(\mathbf{B}\right)}{\textrm{minimize}} & \quad\frac{1}{2}\Bigg\lVert\textrm{vec}\left(\mathbf{Y}\right)-\left(\mathbf{I}\otimes\mathbf{X}\right)\textrm{vec}\left(\mathbf{B}\right)\Bigg\rVert+\left(1-\alpha\right)\lambda\sum_{l}^{m}\sqrt{p_{l}}\big\lVert\textrm{vec}\left(\mathbf{B}\right)^{\left(l\right)}\big\rVert_{2}+\alpha\lambda\big\lVert\textrm{vec}\left(\mathbf{B}\right)^{\left(l\right)}\big\rVert_{1}\end{aligned}
+$$
+where $\alpha$ is the turning parameter for a convex combination of the lasso and group lasso penalties. In our case, we realize what we want by the following R codes:
+```{r}
+set.seed(123)
+library(SGL)
+linreg_row_sparse <- function(X, Y, lambda = 0.01, alpha = 0.85) {
+  N <- ncol(Y)
+  K <- ncol(X)
+  index <- rep(1:K, N)
+  # index <- 1:(N*K)
+  data <- list(x = diag(N) %x% X, y = as.vector(Y))
+  beta <- SGL(data, index, type = "linear", lambdas = lambda / N, alpha = alpha,
+              thresh = 1e-5, standardize = FALSE)$beta
+  B <- matrix(beta, K, N, byrow = FALSE)
+  
+  return(B)
+}
+```
+
+Then, we generate data assuming with some factors only influencing limited data points.
+```{r}
+n_noise <- 4
+X_ <- mvrnorm(n = T, mu = rep(0, n_noise+K), Sigma = diag(n_noise+K))
+
+B_ <- rbind(B_real, matrix(0, n_noise, N))
+for (i in 1:n_noise) {
+  B_[K+i, i] <- 0.5 #rnorm(1)
+}
+
+Y_ <- X_ %*% B_ + 0.01 * matrix(rnorm(T*N), T, N)
+```
+We then compare the differences between element-wise sparse and row-wise sparse regression.
+```{r}
+B_elesparse <- linreg_ele_sparse(X_, Y_, penalty = "lasso", lambda = 0.3)$B
+B_rowsparse <- linreg_row_sparse(X_, Y_, lambda = 0.3, alpha = 0.2)
+
+print(B_)
+print(B_elesparse)
+print(B_rowsparse)
+```
+Obviously, we can obtain the row-sparse $\mathbf{B}$ using sparse-group lasso by properly choosing penalty coefficient $\lambda$ and $\alpha$. The residual factors seem to be identified through this method. However, the magnitude of elements in $\mathbf{B}$ is also restricted.
+
+### Subset selection
+The ideal formulation for row-wise sparse estimation, accroding to our interpretation above, should be:
+$$
+\begin{aligned}\underset{\mathbf{B}}{\mathsf{minimize}} & \quad\frac{1}{T}\lVert\mathbf{Y}-\mathbf{X}\mathbf{B}\rVert_{F}^{2}\end{aligned} + \lambda \sum_{k=1}^{K} \Bigg\lVert \sum_{n=1}^{N} \lvert B_{k,n} \rvert \Bigg\rVert_{0}
+$$
+However, this is a certainly intractable problem because of the non-convex regularization term.  In machine learning field, there exist a classical method called subset selection, which can be implemented as forward search and backward search. We found a function `best.r.sq()` from a recently released R package `mvabund`, which implements a forward selection in a multivariate linear model.
+
+Note: This search is exhausted search and thus very time-consuming.
+```{r}
+library(mvabund)
+
+best.r.sq( Y_~X_ )
+```
+Then, we can perform the trivial linear factor model regression with chosen factors.
+
+
+```
