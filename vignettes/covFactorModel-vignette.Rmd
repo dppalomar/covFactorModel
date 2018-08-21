@@ -376,8 +376,20 @@ $$
  & \,\,\,\boldsymbol{\Psi}=\textrm{diag}\left(\psi_{1},\dots,\psi_{p}\right)\ge\epsilon\mathbf{I}
 \end{aligned}
 $$
-To solve this problem, we implement a very efficient algorithm from [@khamaru2018computation], which is much faster than the one used in `stats::factanal()`.
+To solve this problem, we implement a very efficient algorithm from [@khamaru2018computation], which is much faster than the one used in `stats::factanal()`. We also give the complete procedure of the algorithm for reference, see Algorithm 2.
 
+> **Algorithm 2**    
+  1. Require $\boldsymbol{\Psi}^{\left(0\right)}$ and set $\boldsymbol{\Phi}^{\left(0\right)}=\left(\boldsymbol{\Psi}^{\left(0\right)}\right)^{-1}$, $t=0$    
+  2. Repeat the following   
+  3. Compute $\bigtriangledown_{i}=\left(\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{-\frac{1}{2}}\mathbf{U}\mathbf{D}_{1}\mathbf{U}^{T}\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}\mathbf{S}\right)_{ii}$ for $i=1,\dots,p$, where $\mathbf{U}\mathrm{diag}\left(\lambda_{1}^{*},\dots,\lambda_{p}^{*}\right)\mathbf{U}^{T}=\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}\mathbf{S}\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}$ and $\mathbf{D}_{1}=\mathrm{diag}\left(\delta_{1},\dots,\delta_{p}\right)$ with $\delta_{i}=\begin{cases}
+\max\left\{ 0,1-\frac{1}{\lambda_{i}^{*}}\right\}  & 1\le i\le r\\
+0 & \textrm{otherwise}
+\end{cases}$       
+  4. Update $\Phi_{ii}^{\left(t+1\right)}=\min\left\{ \frac{1}{S_{ii}-\bigtriangledown_{i}},\frac{1}{\epsilon}\right\}$  for $i=1,\dots,p$ and $t\leftarrow t+1$   
+  5. Until convergence.   
+  6. Recovery $\boldsymbol{\Psi}^{\star}=\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{-1}$    
+  7. Compute $\mathbf{B}^{\star}=\left(\boldsymbol{\Psi}^{\star}\right)^{\frac{1}{2}}\left[\mathbf{z}_{1},\mathbf{z}_{2},\dots,\mathbf{z}_{r}\right]$ where $\mathbf{z}_{i}$ are the largest $r$ eigenvectors of $\left(\boldsymbol{\Psi}^{\star}\right)^{-\frac{1}{2}}\mathbf{S}\left(\boldsymbol{\Psi}^{\star}\right)^{-\frac{1}{2}}$ rescaled by corresponding largest $r$ eigenvalues $\lambda_{i}^{*},i\le r$, with $\lVert\mathbf{z}_{i}\rVert^{2}=\max\left\{ 1,\lambda_{i}^{*}\right\} -1$
+ 
 # Macroeconomic factor model with sparse loading matrix
 We impose no structure constraint on loading matrix $\mathbf{B}$ till now, which would weaken its interpretability or  incur the over-fitting problem. One convenient approach is to assume $\mathbf{B}$ is sparse, i.e., add regularization term to loss function. Recall the macroeconomic factor model estimation problem in compact form is
 $$

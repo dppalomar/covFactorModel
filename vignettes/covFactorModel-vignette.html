@@ -12,7 +12,7 @@
 
 <meta name="author" content="Rui Zhou and Daniel P. Palomar" />
 
-<meta name="date" content="2018-08-18" />
+<meta name="date" content="2018-08-21" />
 
 <title>Estimation of covariance matrix via factor models</title>
 
@@ -73,7 +73,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <header>
 <h1 class="title toc-ignore">Estimation of covariance matrix via factor models</h1>
 <h3 class="author">Rui Zhou and Daniel P. Palomar</h3>
-<h3 class="date">2018-08-18</h3>
+<h3 class="date">2018-08-21</h3>
 </header>
 
 <hr>
@@ -432,7 +432,17 @@ mystocks &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st
  &amp; \,\,\,\mathbf{B}\in\mathbb{R}^{N\times K}\\
  &amp; \,\,\,\boldsymbol{\Psi}=\textrm{diag}\left(\psi_{1},\dots,\psi_{p}\right)\ge\epsilon\mathbf{I}
 \end{aligned}
-\]</span> To solve this problem, we implement a very efficient algorithm from <span class="citation">[3]</span>, which is much faster than the one used in <code>stats::factanal()</code>.</p>
+\]</span> To solve this problem, we implement a very efficient algorithm from <span class="citation">[3]</span>, which is much faster than the one used in <code>stats::factanal()</code>. We also give the complete procedure of the algorithm for reference, see Algorithm 2.</p>
+<blockquote>
+<p><strong>Algorithm 2</strong><br />
+1. Require <span class="math inline">\(\boldsymbol{\Psi}^{\left(0\right)}\)</span> and set <span class="math inline">\(\boldsymbol{\Phi}^{\left(0\right)}=\left(\boldsymbol{\Psi}^{\left(0\right)}\right)^{-1}\)</span>, <span class="math inline">\(t=0\)</span><br />
+2. Repeat the following<br />
+3. Compute <span class="math inline">\(\bigtriangledown_{i}=\left(\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{-\frac{1}{2}}\mathbf{U}\mathbf{D}_{1}\mathbf{U}^{T}\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}\mathbf{S}\right)_{ii}\)</span> for <span class="math inline">\(i=1,\dots,p\)</span>, where <span class="math inline">\(\mathbf{U}\mathrm{diag}\left(\lambda_{1}^{*},\dots,\lambda_{p}^{*}\right)\mathbf{U}^{T}=\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}\mathbf{S}\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{\frac{1}{2}}\)</span> and <span class="math inline">\(\mathbf{D}_{1}=\mathrm{diag}\left(\delta_{1},\dots,\delta_{p}\right)\)</span> with <span class="math inline">\(\delta_{i}=\begin{cases} \max\left\{ 0,1-\frac{1}{\lambda_{i}^{*}}\right\} &amp; 1\le i\le r\\ 0 &amp; \textrm{otherwise} \end{cases}\)</span><br />
+4. Update <span class="math inline">\(\Phi_{ii}^{\left(t+1\right)}=\min\left\{ \frac{1}{S_{ii}-\bigtriangledown_{i}},\frac{1}{\epsilon}\right\}\)</span> for <span class="math inline">\(i=1,\dots,p\)</span> and <span class="math inline">\(t\leftarrow t+1\)</span><br />
+5. Until convergence.<br />
+6. Recovery <span class="math inline">\(\boldsymbol{\Psi}^{\star}=\left(\boldsymbol{\Phi}^{\left(t\right)}\right)^{-1}\)</span><br />
+7. Compute <span class="math inline">\(\mathbf{B}^{\star}=\left(\boldsymbol{\Psi}^{\star}\right)^{\frac{1}{2}}\left[\mathbf{z}_{1},\mathbf{z}_{2},\dots,\mathbf{z}_{r}\right]\)</span> where <span class="math inline">\(\mathbf{z}_{i}\)</span> are the largest <span class="math inline">\(r\)</span> eigenvectors of <span class="math inline">\(\left(\boldsymbol{\Psi}^{\star}\right)^{-\frac{1}{2}}\mathbf{S}\left(\boldsymbol{\Psi}^{\star}\right)^{-\frac{1}{2}}\)</span> rescaled by corresponding largest <span class="math inline">\(r\)</span> eigenvalues <span class="math inline">\(\lambda_{i}^{*},i\le r\)</span>, with <span class="math inline">\(\lVert\mathbf{z}_{i}\rVert^{2}=\max\left\{ 1,\lambda_{i}^{*}\right\} -1\)</span></p>
+</blockquote>
 </div>
 </div>
 </div>
