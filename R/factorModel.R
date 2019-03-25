@@ -195,14 +195,14 @@ statFactorModel <- function(X, K, orthonormal, max_iter, tol, Psi_struct, stock_
   # first, estimate iteratively the covariance matrix (assuming cov(factors) == I)
   alpha <- colMeans(X)
   X_ <- X - matrix(alpha, T, N, byrow = TRUE)
-  Sigma_prev <- matrix(0, N, N)
+  Sigma_prev <- Sigma <- matrix(0, N, N)
   Psi <- matrix(0, N, N)
-  Sigma <- (1/(T-1)) * t(X_) %*% X_
+  S <- (1/(T-1)) * t(X_) %*% X_
   for (i in 1:max_iter) {
-    eig_Sigma <- eigen(Sigma - Psi)
+    eig_Sigma <- eigen(S - Psi)
     beta <- eig_Sigma$vectors[, 1:K, drop = FALSE] %*% diag(sqrt(eig_Sigma$values[1:K]), K)
     beta_beta_t <- tcrossprod(beta)
-    Psi <- imposePsiStructure(Sigma - beta_beta_t, Psi_struct, stock_sector_info)
+    Psi <- imposePsiStructure(S - beta_beta_t, Psi_struct, stock_sector_info)
     Sigma_prev <- Sigma
     Sigma <- beta_beta_t + Psi
     if (norm(Sigma - Sigma_prev, "F")/norm(Sigma, "F") < tol) break
